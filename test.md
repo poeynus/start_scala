@@ -16,7 +16,7 @@
 - [흐름도](#---)
 - [상세](#--)
     * [MQTT Service 실행](#mqtt-service-실행)
-    * [Api를 사용한 apiToken, otp 정보 획득](#api를-사용한-apitoken--otp-정보-획득)
+    * [Api를 사용한 apiToken, otp 정보 획득](#api를-사용한-apitoken-otp-정보-획득)
     * [psycopg2를 사용한 교차로 이동류 정보 조회](#psycopg2를-사용한-교차로-이동류-정보-조회)
     * [Message 가공](#message-가공)
     * [MQTT Publish](#mqtt-publish)
