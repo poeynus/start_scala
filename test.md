@@ -61,6 +61,10 @@ byte 단위로 1, 1, 1, 2, 4, 4, 8, 4 이므로 unpack의 key는 '>ccBHLLQL’�
 
 header: 25byte, body: 25byte 뒤의 데이터
 
+```python
+header_info = struct.unpack('>ccBHLLQL', binary_msg[:25])
+```
+
 [struct unpack 참고](https://docs.python.org/ko/3/library/struct.html)
 
 body 규격은 아래와 같습니다.
@@ -70,6 +74,25 @@ body 규격은 아래와 같습니다.
 해당하는 크기 만큼의 byte를 bit로 변환 후 하나 하나 분석 해야 합니다.
 
 body 1개의 사이즈: 10, 전체 body를 10으로 나누어 분리 후 리스트에 담아야 함
+
+```python
+def parse_bit_string(bit_string):
+    """
+    제어기 운영상태의 현재 운영중인 맵 번호 값을 얻는 방법
+    이진 문자열을 정수로 변환
+    """
+    try:
+        bits = int(bit_string, 2)
+        return bits
+    except Exception as e:
+        print(f"Json error {e}")
+        self.json_err_logger.error(self.log_service.error_msg_format('parse_bit_string', e, bit_string))
+        return 0
+
+# 제어기 운영 상태
+lc_operating_status_bit = ''.join(format(byte, '08b') for byte in binary[6:7])
+crsrd_info['plan_div'] = parse_bit_string(lc_operating_status_bit[4:7]) + 1  # 현재 운영중인 맵 번호
+```
 
 > 원천에서 보내는 정보가 많아 Message가 분리 되어 올 수 있습니다.
 > 
@@ -107,9 +130,9 @@ mapping에 사용할 교차로 이동류와 해당하는 좌표 정보는 실시
 3. 두 데이터를 사용하여 DW 생성
     - 위에서 쌓은 두 데이터를 사용하여 중복을 제거한 후 최신 데이터들을 뽑아냅니다.
     <details>
-    <summary>초기 적 코드 접기/펼치기</summary>
+    <summary>초기 적재 코드 접기/펼치기</summary>
     
-    ```
+    ```sql
     INSERT INTO DW_CRSRD_INFO (crsrd_no, plan_div, ring_no, phase_no, flow_no, crsrd_nm, updt_dt, crsrd_type, cntlr_type, lamp_type, main_crsrd_no, sa_grp_no, crsrd_node_id, crsrd_lon, crsrd_lat, ppc_type, flow_start_lon, flow_start_lat, flow_cntr_lon, flow_cntr_lat, flow_end_lon, flow_end_lat)
     select  crsrd_no, plan_div, ring_no, phase_no, flow_no, crsrd_nm, updt_dt, crsrd_type, cntlr_type, lamp_type, main_crsrd_no, sa_grp_no, crsrd_node_id, crsrd_lon, crsrd_lat, ppc_type, flow_start_lon, flow_start_lat, flow_cntr_lon, flow_cntr_lat, flow_end_lon, flow_end_lat
         from (
@@ -168,7 +191,7 @@ mapping에 사용할 교차로 이동류와 해당하는 좌표 정보는 실시
     <details>
     <summary>일 단위 적재 코드 접기/펼치기</summary>
     
-    ```
+    ```sql
     INSERT INTO DW_CRSRD_INFO (CRSRD_NO, UPDT_DT, CRSRD_NM, PLAN_DIV, RING_NO, PHASE_NO, FLOW_NO, CRSRD_TYPE, CNTLR_TYPE, LAMP_TYPE, MAIN_CRSRD_NO, SA_GRP_NO, CRSRD_NODE_ID, CRSRD_LON, CRSRD_LAT, PPC_TYPE, FLOW_START_LON, FLOW_START_LAT, FLOW_CNTR_LON, FLOW_CNTR_LAT, FLOW_END_LON, FLOW_END_LAT)
     SELECT CRSRD_NO, UPDT_DT, CRSRD_NM, PLAN_DIV, RING_NO, PHASE_NO, FLOW_NO, CRSRD_TYPE, CNTLR_TYPE, LAMP_TYPE, MAIN_CRSRD_NO, SA_GRP_NO, CRSRD_NODE_ID, CRSRD_LON, CRSRD_LAT, PPC_TYPE, FLOW_START_LON, FLOW_START_LAT, FLOW_CNTR_LON, FLOW_CNTR_LAT, FLOW_END_LON, FLOW_END_LAT FROM (
         WITH CRSRDFLOW AS (
