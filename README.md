@@ -228,5 +228,210 @@ y
 
 클래스와 유사해보이지만 class 대신 object 키워드로 시작 된다. 싱글톤 객체 정의는 타입을 정의하지 않는다.
 
+```scala
+// 클래스 ChecksumAccumulator 정의
+class ChecksumAccumulator{
+  private var sum = 0
+  def add(b: Byte) = sum += b
+  def checksum(): Int = return (sum & 0xFF)
+}
+
+
+// 싱글톤 객체 ChecksumAccumulator 정의
+object ChecksumAccumulator extends App{
+  private val cache = mutable.Map.empty[String, Int]
+  def calculate(s: String) : Int =
+    if (cache.contains(s))
+      cache(s)
+    else {
+      val acc = new ChecksumAccumulator    // 여기서의 ChecksumAccumulator 는 class이다. new는 클래스를 인스턴스화 할 때만 사용한다.
+      for (c <- s)
+        acc.add(c.toByte)
+      val cs = acc.checksum()
+      cache += (s -> cs)          // 한번 계산한 checksum을 캐싱하기 위한 변경 가능한 맵
+      cs
+    }
+}
+```
+> 싱글톤 객체는 아직 이해를 못했고, 일단 정리만 했다.
+
 ---
+
+## App 트레이트
+
+여러 클래스에서 공통으로 사용되는 메서드와 필드의 집합을 정의하는 방법
+
+> 트레이트를 사용하기 위해서는 정의할 싱글톤 뒤에 extends App 이라고 선언한다.
+ 
+> main 메소드를 선언하는 대신, main 메소드에 넣고 싶은 코드를 extends App와 같이 선언된 싱글톤 객체에 정의하면 된다.
+
+```scala
+import ChecksumAccumulator.calculate
+
+object FallWinterSpringSummer extends App {
+  for (season <- List("fall", "winter", "spring")) pr ntln(season + " + calculate(season))
+}
+```
+
+---
+
+# 5장
+
+## 타입
+
+자바의 기본 타입과 연산자가 스칼라에서도 정확히 일치한다.
+
+기본 타입: String
+
+값 타입:  Int, Long, Short, Byte, Float, Double, Char, Boolean
+
+## 리터럴
+
+기본 타입은 모두 리터럴로 적을 수 있다.
+
+> 리터럴: 상숫값을 코드에 직접 적는것
+
+> 스칼라는 8진 리터럴을 지원하지 않기에, 0으로 시작하는 031 같은 정수 리터럴은 컴파일 되지 않는다.
+
+> 스칼라는 리터럴에 사용한 진법과 관계없이 항상 밑을 10으로 하는 정수를 출력한다.
+
+> Int 리터럴을 Short나 Byte 변수에 할당하면, 그 리터럴의 값이 각 대상 타입의 범위 안에 있는 한 해당 타입으로 취급한다.
+
+**정수 리터럴**
+
+Int, Long, Short, Byte에 사용하며 10진, 16진 리터럴이 있다. 0 ~ 9, A ~ F 를 자리에 사용할 수 있다.
+
+```scala
+val dec1 = 31
+val prog = 0XCAFEBABEL
+val t = 30L
+val lit: Short = 367
+val a: Byte = 38
+```
+
+**부동 소수점 리터럴**
+
+부동소수점 리터럴은 십진 숫자들로 이뤄진다. 소수점이 있을 수도 있고, 마지막에 E나 e 다음에 지수부분이 있을 수 있다.
+
+f나 F로 끝나면 float이며, 그렇지 않으면 Double이다.
+
+```scala
+val a = 1.2345
+val b = 1.2345e1
+val c = 1.2345F
+val d = 3e5f
+val e = 3e5
+val f = 3e5f
+```
+
+**문자 리터럴**
+
+문자 리터럴은 작은 따옴표 안에 유니코드 문자를 넣어 만든다. 이스케이프 시퀀스도 표현 가능하다.
+
+```scala
+val a = 'A'
+val b = '\u0041'
+val c = '\\'
+```
+
+**문자열 리터럴**
+
+문자열 리터럴은 큰따옴표 둘로 둘러싼 문자열로 이뤄진다. 방식은 문자 리터럴과 동일하다. 여러줄에 걸친 문자열인 경우 큰따옴표를 3개 사용한다.
+
+```scala
+val a = "asdasd"
+val b =
+  """|hi
+     |im
+     |happy""".stripMargin()
+```
+**심볼 리터럴**
+
+심볼 리터럴은 ident 처럼 쓴다. 작은 따옴표 뒤에 오는 식별자 부분은 알파벳과 숫자를 혼합한 올바른 식별자라면 아무것이나 가능하다.
+
+> 어디에 쓰이는지 모르겠다.
+
+**불리언 리터럴**
+
+Boolean 타입의 리터럴에는 true와 false가 있다.
+
+```scala
+val a = true
+val b = false
+```
+
+## 문자열 인터폴레이션
+
+문자열 리터럴 내부에 표현식을 내장시킬 수 있다. 
+
+```scala
+val a = "test"
+println(s"Hello, $a!")
+val b = f"${math.Pi}%.5f"
+```
+
+## 연산자는 메소드다.
+
+기본 타입의 풍부한 연산자를 제공한다.
+
+```scala
+val a = 1.+(2)
+println(a)
+
+val b = "Hello world!"
+println(b indexOf('o', 5)) // 5번째 문자부터 o 검색
+
+// 전위 연산자
+def main(args: Aarray[String]): Unit = {
+  val test = new Test(5)
+  println(+test)
+  println(-test)
+  println(*test)  // not found Error
+}
+class Test(val num: Int) {
+  def unary_+(): Int = if(num > 0) num else -num
+  def unary_-(): Int = if(num > 0) -num else num
+  def unary_*(): Int = num * num
+}
+```
+
+> 모든 메소드는 연산자가 될 수 잇다. 스칼라에서 연산자는 문법적으로 특별한 것이 아니다. 어떤 메소드든 연산자가 될 수 있다.
+
+---
+
+## 산술 연산, 관계 연산, 논리 연산, 비트 연산, 객체 동일성
+
+모든 수 타입에 대해 더하기(+), 빼기(-), 곱하기(*), 나누기(/), 나머지(%)를 중위 연산자를 사용해 계산할 수 있다.
+
+수 타입을 크다(>), 작다(<), 크거나 같다(>=), 작거나 같다(<=) 라는 관계 연산자를 사용해 비교 가능하다. 결과는 Boolean이다.
+
+비트 연산자는 비트곱(&), 비트합(|), 비트 배타합(^)이 있다.
+
+두 객체가 같은지 비교하려면 == 을 사용하고, 같지 않은지를 비교하려면 != 을 사용한다. 자동으로 null을 체크하기 때문에 직접 null 검사할 필요가 없다.
+
+> 자바와 동일하니 예시는 pass
+
+> &&, || 는 쇼트 서킷 연산이다. 
+
+> 쇼트 서킷 연산 : 두 피연산자 중 어느 한쪽만 '참'이면은 우측 피연산자의 값은 평가하지 않고 바로 결과를 얻는 행위
+
+## 연산자 우선순위와 결합 법칙
+
+표현식에서 어떤 부분을 먼저 실행할지를 결정할 때 연산자 우선순위를 사용한다.
+
+스칼라에서 연산자라는 개념은 홀로 존재하는 것이 아니고 메소드를 연산자 표기로 쓸 뿐이다.
+
+> 2 + 2 * 7 == 2 + (2 * 7)
+
+> a +++ b *** c == a +++ (b *** c) 
+
+> 스칼라의 우선순위를 안다고 하더라도 명확히 표시하여 주는 것이 좋다.
+
+## 풍부한 래퍼
+
+스칼라 기본 타입에 더 유용한 메서드를 제공해주는 풍부한 래퍼 클래스로 변환하는 암시적 변환이 존재한다. 
+
+[wrapper class - common types](https://www.baeldung.com/scala/rich-wrappers)
+
+
 
