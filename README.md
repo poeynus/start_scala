@@ -441,5 +441,93 @@ class Test(val num: Int) {
 
 [wrapper class - common types](https://www.baeldung.com/scala/rich-wrappers)
 
+# 6장
+
+## 분수 클래스 명세
+
+분수는 분자와 분모를 가지고 있는 값이다. 우리는 분수의 일부 기능을 구현해야 한다. 그리고 Rational(만드는 것) 클래스를 통해 구현한다.
+
+```scala
+val oneHalf = new Rational(1, 2) // 2 분의 1
+```
+
+**Rational 생성**
+
+클래스를 정의한다.
+
+```scala
+class Rational(n: Int, d: Int) {
+  println("Created " + n + "/" + d)
+}
+```
+
+**toString 다시 구현하기**
+
+기본적으로 java.lang.Object의 toString을 물려받지만 이름,@,16진수로 나와 그다지 유용하지 않다. 오버라이드를 통해 재정의한다.
+
+```scala
+class Rational(n: Int, d: Int) {
+  override def toString = s"$n/$d"
+}
+```
+
+**선결 조건 확인**
+
+위의 class에서 분모는 0이 될 수 없다. 그러니 조건을 걸어준다. 전달 받은 값이 참이 아니라면 IllegalArgumentException이 발생한다.
+
+```scala
+class Rational(n: Int, d: Int) {
+  require(d != 0)
+  override def toString = s"$n/$d"
+}
+```
+
+**필드 추가**
+
+본격적으로 덧셈 기능을 추가한다.
+
+```scala
+class Rational(n: Int, d: Int){
+  require(d != 0)
+  val numer: Int = n
+  val denom: Int = d
+  override def toString = s"$n/$d"
+  def add(that: Rational): Rational = {
+    new Rational(
+      numer * that.denom + that.numer * denom, denom * that.denom
+    )
+  }
+}
+```
+
+**자기 참조**
+
+현재 실행 중인 메서드의 호출 대상 인스턴스에 대한 참조를 자기 참조라고 한다. 생성자 내부에서는 자기 참조가 생성 중인 객체의 인스턴스를 가리킨다.
+
+```scala
+def lessThan(that: Rational): Boolean = {
+  // this 생략 가능
+  this.numer * that.denom < that.numer * this.denom
+}
+
+def max(that: Rational): Rational = {
+  // this.lessThan은 생략 가능 else this는 생략 불가
+  if(this.lessThan(that)) that else this
+}
+```
+
+**보조 생성자**
+
+하나의 클래스에 여러 생성자가 필요한 경우 주 생성자가 아닌 다른 생성자를 보조 생성자라 부른다.
+
+```scala
+def this(n: Int) = {
+  this(n, 1)
+}
+
+val y = new Rational(3) // 3/1
+```
+
+
 
 
