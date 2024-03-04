@@ -6,11 +6,21 @@ object Main {
       require(d != 0)
       val numer: Int = n
       val denom: Int = d
+
+      private val g = gcd(n.abs, d.abs)
+
+      private def gcd(a: Int, b: Int): Int = {
+        if (b == 0) a else gcd(b, a % b)
+      }
       override def toString = s"$n/$d"
-      def add(that: Rational): Rational = {
+      def + (that: Rational): Rational = {
         new Rational(
           numer * that.denom + that.numer * denom, denom * that.denom
         )
+      }
+
+      def * (that: Rational): Rational = {
+        new Rational(numer * that.numer, denom * that.denom)
       }
 
       def this(n: Int) = {

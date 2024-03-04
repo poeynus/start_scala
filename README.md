@@ -528,6 +528,48 @@ def this(n: Int) = {
 val y = new Rational(3) // 3/1
 ```
 
+> 스칼라가 자바보다 생성자 관련 규칙이 엄격하다. 스칼라는 주 생성자만이 슈퍼클래스의 생성자를 호출할 수 있기 때문이다.
 
+> 더 간결하고 단순하게 만드는 대신 유연성을 포기한 것이다.
 
+**비공개 필드와 메서드**
 
+66/42 같은 경우 11/7로 약분 가능한데 현재는 처리하지 않는다. 이를 비공개 필드와 메서드로 처리 한다.
+
+```scala
+val numer: Int = n
+val denom: Int = d
+
+private val g = gcd(n.abs, d.abs)
+
+private def gcd(a: Int, b: Int): Int = {
+  if (b == 0) a else gcd(b, a % b)
+}
+
+val y = new Rational(66, 42) // 11/7
+```
+
+**연산자 정의**
+
+```scala
+def + (that: Rational): Rational = {
+  new Rational(
+    numer * that.denom + that.numer * denom, denom * that.denom
+  )
+}
+
+def * (that: Rational): Rational = {
+  new Rational(numer * that.numer, denom * that.denom)
+}
+
+x + y // 1/2 + 2+3 = 7/6
+```
+
+분수에서 add 함수를 계속 쓰는 것 보다는 + 와 같은 것으로 사용하는 것이 좋다.
+
+**메서드 오버로드**
+
+오버라이드가 가능했던 것처럼, 오버로드 역시 가능하다. 따라서 다양한 연산을 진행할 수 있다. 
+
+스칼라에서 오버로드 메서드를 처리하는 방법은 Java와 거의 유사하다. 오버로드한 메서드 중 인자의 정적인 타입과 가장 잘 일치하는 버전을 선택하여 실행된다.
+ㅈ
