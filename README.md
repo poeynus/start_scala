@@ -551,6 +551,8 @@ val y = new Rational(66, 42) // 11/7
 
 **연산자 정의**
 
+분수에서 add 함수를 계속 쓰는 것 보다는 + 와 같은 것으로 사용하는 것이 좋다.
+
 ```scala
 def + (that: Rational): Rational = {
   new Rational(
@@ -563,13 +565,308 @@ def * (that: Rational): Rational = {
 }
 
 x + y // 1/2 + 2+3 = 7/6
+x.add(1, 2) // X
 ```
-
-분수에서 add 함수를 계속 쓰는 것 보다는 + 와 같은 것으로 사용하는 것이 좋다.
 
 **메서드 오버로드**
 
 오버라이드가 가능했던 것처럼, 오버로드 역시 가능하다. 따라서 다양한 연산을 진행할 수 있다. 
 
 스칼라에서 오버로드 메서드를 처리하는 방법은 Java와 거의 유사하다. 오버로드한 메서드 중 인자의 정적인 타입과 가장 잘 일치하는 버전을 선택하여 실행된다.
-ㅈ
+
+# 7장
+
+## if 표현식
+
+스칼라의 if는 다른 언어와 마찬가지로 동작한다.
+
+```scala
+val filename =
+  if(!args.isEmpty) args(0)
+  else "default.txt"
+```
+
+## while 루프
+
+while 루프 또한 동일하다.
+
+```scala
+def gcdLoop(x: Long, y: Long): Long = {
+  var a = x
+  var b = y
+  while (a != 0) {
+    val temp = a
+    a = b % a
+    b = temp
+  }
+  b
+}
+
+// 재귀를 사용한 최대 공약수
+def gcd(x: Long, y: Long): Long =
+  if (y == 0) x else gcd(t, x % y)
+```
+
+> while과 do-while이 이루는 구조는 수행 결과가 관심을 가질만한 값이 아니기 때문에 표현식이 아닌 루프 라고 부른다.
+
+## for 표현식
+
+**컬렉션 이터레이션**
+
+for 표현식은 반복 처리를 위한 만능 칼이라 할 수 있다. 그리고 가장 간단한 일은 컬렉션에 있는 모든 요소를 이터레이션 하는 것이다.
+
+```scala
+// 제네레이터를 사용한 이터레이션
+val filesHere = (new java.io.file(".")).listFiles
+for (file <- filesHere)
+  println(file)
+```
+
+**필터링**
+
+전체 컬렉션을 걸러내서 그 일부만 사용하고 싶은 경우 필터를 추가한다.
+
+```scala
+val filesHere = (new java.io.File(".")).listFiles()
+for (file <- filesHere if file.getName.endsWith(".scala"))
+  println(file)
+
+// 명령형 프로그래밍 형태
+for (file <- filesHere)
+  if(file.getName.endsWith(".scala"))
+    println(file)
+    
+// 여러 조건
+for (file <- filesHere 
+     if file.isFile 
+     if file.getName.endsWith(".scala")) println(file)
+```
+
+**중첩 이터레이션**
+
+여러개의 <- 절을 추가하면 중첩 루프를 작성할 수 있다.
+
+```scala
+def fileLines(file: java.io.File) = 
+  scala.io.Source.fromFile(file).getLines()toArray
+
+def grep(pattern: String) =
+  for(
+    file <- filesHere
+    if file.getName.endsWith(".scala");
+    line <- fileLines(file)
+    if line.trim.matches(pattern)
+  ) println(s"$file: ${line.trim}")
+grep(".*gcd.*")
+```
+
+**for 중에 변수 바인딩하기**
+
+val, var 변수처럼 선언하고 사용하면 되는데, val이나 var 키워드를 사용하지는 않는다.
+
+```scala
+def fileLines(file: java.io.File) = 
+  scala.io.Source.fromFile(file).getLines()toArray
+
+def grep(pattern: String) =
+  for(
+    file <- filesHere
+    if file.getName.endsWith(".scala");
+    line <- fileLines(file)
+    trimmed = line.trim // 변수 바인딩
+    if trimmed.matches(pattern)
+  ) println(s"$file: ${trimmed}")
+grep(".*gcd.*")
+```
+
+**새로운 컬렉션 만들어내기**
+
+yield를 사용하면 이터레이션의 매 반복 단계의 결과를 저장하기 위한 값을 만들 수 있다.
+
+yield는 코드 블록의 마지막이 아니라 여는 중괄호 앞에 위치해야 한다.
+
+```scala
+def scalaFiles =
+  for {
+    file <- filesHere
+    if file.getName.endsWith(".scala")
+  } yield file
+
+val numbers = List(1, 2, 3, 4, 5)
+val squaredNumbers = for (num <- numbers) yield num * num
+// squaredNumbers는 List(1, 4, 9, 16, 25)
+```
+
+**try 표현식으로 예외 다루기**
+
+예외는 여타 언어와 유사하게 동작한다.
+
+```scala
+// 예외 발생시키기
+throw new IllegalArgumentException
+
+val half =
+  if (n % 2 == 0)
+    n / 2
+  else
+    throw new RuntimeException("n must be even")
+```
+
+**발생한 예외 잡기**
+
+스칼라의 중요한 부분인 패턴 매치와의 일관성을 유지하여 catch 절을 작성한다.
+
+```scala
+try {
+  val f = new FileReader("input.txt")
+} catch {
+  case ex: FileNotFoundException => // 파일 못찾는 경우
+  case ex: IOException => // 그 밖의 오류
+}
+```
+
+**finally 절**
+
+표현식의 결과가 어떻든 특정 코드를 반드시 수행하고 싶은 경우 finally 절로 감싸준다.
+
+```scala
+val f = new FileReader("input.txt")
+try {
+  // 파일 사용
+} finally {
+  file.close()
+}
+```
+
+**값 만들어내기**
+
+try-catch-finally 도 결과는 값이다. finally 절에서는 값을 반환하지 않는 게 최선이다.
+
+finally 절은 파일을 닫는 등의 정리 작업을 수행하므로, try절의 본문이나 catch 절의 결과를 수정하지 않아야 한다.
+
+```scala
+def urlFor(path: String) =
+  try {
+    new URL(path)
+  } catch {
+    case e: MalformedURLException =>
+      new URL("google.com")
+  }
+  
+// finally 값 반환 하지 말자.
+try return 1 finally return 2 // 2 반환
+try 1 finally 2 // 1 반환
+```
+
+**match 표현식**
+
+스칼라의 match 표현식은 switch문과 유사하다. 여기서는 대안 중 하나를 고르는 방법을 설명한다.
+
+java의 case는 enum, 정수, 문자열만 사용 가능하지만 scala는 어떤 종류의 상수라도 사용할 수 있다. 또 각 선택의 끝에 break 문을 쓸 필요 없다 암묵적으로 존재한다.
+
+```scala
+val firstArg = if(args.length > 0) args(0) else ""
+
+firstArg match {
+  case "salt" => println("pepper")
+  case "eggs" => println("bacon")
+  case _ => println("none")
+}
+
+// 값을 만들어 내는 match
+val friend = 
+  firstArg match {
+  case "salt" => "pepper"
+  case "eggs" => "bacon"
+  case _ => "none"
+}
+```
+
+**break, continue 없이 살기**
+
+가장 간단한 접근법은 모든 continue를 if로, 모든 break를 불리언 변수로 대체하는 것이다.
+
+```scala
+var i = 0
+var foundIt = false
+
+while (i < args.length && !foundIt) {
+  if (!args(i).startsWith("-")) {
+    if(args(i).endsWith(".scala"))
+      foundIt = true
+  }
+  i = i + 1
+}
+
+// var를 사용해 루프 대신 재귀를 사용한 코드
+def searchForm(i: Int): Int =
+  if(i >= args.length) -1
+  else if (args(i).startsWith("-")) searchForm(i + 1)
+  else if (args(i).endsWith(".scala")) i
+  else searchForm(i + 1)
+  
+val i = searchForm(0)
+```
+
+**변수 스코프**
+
+변수 정의는 해당 변수를 사용할 수 있는 범위인 스코프를 갖는다. 중괄호를 사용하면 새로운 스코프가 생기고, 그 안에서 정의한 것은 중괄호를 닫으면 모두 사라진다.
+
+스칼라에서는 내부 스코프에 동일한 이름의 변수를 정의해도 된다.
+
+```scala
+def printMultiTable() = {
+  var i = 1 // 1만이스코프안에있다.
+  while (i =< 10) {
+    var j = 1 // 여기서는호와J가스코프안에있다. 
+    while (j <= 10) {
+      val prod = (i * j).tostring // i, j, prod가 스코프 안에 있다.
+      var k = prod.length // i, j, prod, k가 모두 스코프 안에 있다.
+      while (k < 4) {
+        print(" ")
+        k += 1
+      }
+      print(prod)
+      j += 1
+    }
+    // i와J는여전히스코프안이지만, prod와K는스코프를벗어난다.
+    printin()
+    i += 1
+  }
+  // i는 여전히 스코프 안이지만, j, prod, k는스코프를벗어난다. 
+}
+
+// 컴파일 불가
+val a = 1
+val a = 2
+println(a) 
+
+// 컴파일 가능
+val a = 1;
+{
+  val a = 2
+  println(a)
+}
+println(a)
+```
+
+**명령형 스타일 코드 리팩토링**
+
+함수형 스타일에 대한 이해를 위해 명령형 코드를 리팩토링 해본다. 해당 코드는 바로 위의 변수 스코프에서 작성한 코드 이다.
+
+```scala
+def makeRowSeq(row: Int) =
+  for (col <- 1 to 10) yield {
+    val prod = (row * col).toString
+    val padding = " "* (4 - prod.length)
+    padding + prod
+  }
+def makeRow(row: Int) = makeRowSeq(row).mkString()
+
+def multiTalbe() = {
+  val tableSeq =
+    for (row <- 1 to 10) 
+    yield makeRow(row)
+  tableSeq.mkString("\n")
+}
+```
