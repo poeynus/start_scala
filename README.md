@@ -45,7 +45,21 @@
   * [커링](#커링)
   * [새로운 제어 구조 작성](#새로운-제어-구조-작성)
   * [이름에 의한 호출 파라미터](#이름에-의한-호출-파라미터)
-  
+- [10장](#10장)
+  * [2차원 레이아웃 라이브러리](#2차원-레이아웃-라이브러리)
+  * [추상 클래스](#추상-클래스)
+  * [파라미터 없는 메소드 정의](#파라미터-없는-메소드-정의)
+  * [클래스 확장](#클래스-확장)
+  * [메소드와 필드 오버라이드](#메소드와-필드-오버라이드)
+  * [파라미터 필드 정의](#파라미터-필드-정의)
+  * [슈퍼클래스의 생성자 호출](#슈퍼클래스의-생성자-호출)
+  * [override 수식자 사용](#override-수식자-사용)
+  * [다형성과 동적 바인딩](#다형성과-동적-바인딩)
+  * [final 멤버 선언](#final-멤버-선언)
+  * [상속과 구성 사용](#상속과-구성-사용)
+  * [above, beside, toString 구현](#above-beside-toString-구현)
+  * [팩토리 객체 정의](#팩토리-객체-정의)
+
 # 1장
 
 ## 확장 가능한 언어
@@ -301,7 +315,7 @@ object ChecksumAccumulator extends App{
 import ChecksumAccumulator.calculate
 
 object FallWinterSpringSummer extends App {
-  for (season <- List("fall", "winter", "spring")) pr ntln(season + " + calculate(season))
+  for (season <- List("fall", "winter", "spring")) println(season + calculate(season))
 }
 ```
 
@@ -1229,3 +1243,262 @@ def byNameAssert(predicate: => Boolean) = {
 }
 byNameAssert(5 > 3)
 ```
+
+# 10장
+
+## 2차원 레이아웃 라이브러리
+
+elem 이라는 팩토리 메서드를 사용하여 문자열로 채워진 사각형을 표현할 것이다.
+
+특정 도메인의 요소를 결합해 새로운 요소를 만들어내는 것을 콤비네이터라고 부른다.
+
+```scala
+// 아래의 코드가 동작 되게끔 만들어 볼 것이다.
+elem(s: String): Element
+
+val column1 = elem("hello") above elem("***")
+val column2 = elem("***") above elem("world")
+column1 beside column2     
+// hello ***
+// *** world
+```
+
+## 추상 클래스
+
+Element 타이블 정의한다. contents는 구현이 없는 메소드 선언이다.
+
+contents는 Element의 추상 멤버이다.
+
+
+```scala
+abstract class Element {
+  def contents: Array[String]
+}
+```
+
+## 파라미터 없는 메소드 정의
+
+Element에 너비와 높이를 알려주는 width와 height 메소드를 추가한다.
+
+아래의 코드같은 형태를 파라미터 없는 메소드 라고 부른다. def width(): Int 이런 형태는 빈 괄호 메소드 라고 부른다.
+
+어떤 메소드에 인자도 받지 않고 객체의 필드를 읽는 방식으로만 변경 가능한 상태에 접근하는 경우 사용한다.
+
+```scala
+abstract class Element {
+  def contents: Array[String]
+  def height: Int = contents.length
+  def width: Int = if (height == 0) 0 else contents(0).length
+}
+```
+
+> 필드나 메소드 중 어떤 방식으로 속성을 정의하더라도 클라이언트 코드에는 영향을 끼치지 말아야 한다는 단일 접근 원칙에 부합한다.
+
+## 클래스 확장
+
+어떤 요소의 인스턴스르 생성하려면 Element를 상속한 서브클래스에서 추상 메서드인 contents를 구현해야 한다.
+
+```scala
+class ArrayElement(conts: Array[String]) extends Element {
+  def contents: Array[String] = conts
+}
+
+val ae = new ArrayElement(Array("h", "w"))
+ae.width
+```
+
+## 메소드와 필드 오버라이드
+
+스칼라에서는 필드와 메소드가 같은 네임스페이스에 속한다. 이러한 특징으로 필드가 파라미터 없는 메소드를 오버라이드 할 수 있다.
+
+```scala
+// 파라미터 없는 메소드를 필드로 오버라이드
+class ArrayElement(conts: Array[String]) extends Element {
+  val contents: Array[String] = conts
+}
+```
+
+## 파라미터 필드 정의
+
+ArrayElement는 conts라는 파라미터가 있다. conts의 존재이유는 contents 필드로 복사하기 위한 것인데, 이름과 최대한 비슷하면서 충돌을 피하기 위해 정의한 것이다.
+
+이는 불필요한 중복이나 반복이 코드에 있을지도 모름을 나타내는 코드 냄새다. 파라미터와 필드를 결합해 하나의 파라미터 필드로 정의하면 피할 수 있다.
+
+```scala
+// contents를 파라미터 필드로 정의하기
+class ArrayElement(
+  val contents: Array[String]
+) extends Element
+                  
+// 위의 코드와 동일하게 동작한다.
+class ArrayElement(x123: Array[String]) extends Element {
+  val contents: Array[String] = x123
+}
+
+// 아래는 동일한 코드이다.
+class Tiger(
+ override val dangerous: Boolean,
+ private var age: Int
+) extends Cat
+           
+class Tiger(p1: Boolean, p2: Int) extends Cat {
+  override val dangerous = p1
+  private var age = p2
+}
+```
+
+## 슈퍼클래스의 생성자 호출
+
+위의 클래스에서 한 줄짜리 문자열로 이뤄진 레이아웃 원소를 표현하고 싶을 경우 서브 클래스를 생성하면 된다.
+
+```scala
+class LineElement(s: String) extends ArrayElement(Array(s)) {
+  override def width = s.length
+  override def height = 1
+}
+```
+
+## override 수식자 사용
+
+width와 height에는 override 수식자가 붙어있다. 부모 클래스에 있는 구체적인 멤버를 오버라이드 하는 모든 멤버에 override 수식자를 붙여야 한다.
+
+추상 멤버를 구현할 경우에는 override 수식자를 생략할 수 있다. 이러한 규치은 컴파일러가 발견하기 어려운 오류를 방지하고, 시스템을 안전하게 발전시킬 수 있게 한다.
+
+## 다형성과 동적 바인딩
+
+Element 타입의 변수가 ArrayElement 타입의 객체를 참조할 수 있는데, 이련 현상을 다형성이라고 한다.
+
+Element는 ArrayElement나 LineElement등 여러 형태로 활용 가능하다. 또한 이럴 경우 변수나 표현식에 대한 메소드 호출을 동적으로 바인딩 한다.
+
+```scala
+abstract class Element {
+  def demo() = {
+    println("asd")
+  }
+}
+class testElement extends Element
+
+def invokeDemo(e: Element): Unit = {
+  e.demo()
+}
+
+invokeDemo(new testElement) // override 하지 않았지만 정상 작동
+```
+
+## final 멤버 선언
+
+상속 계층을 설계하다 보면 서브 클래스가 특정 멤버를 오버라이드 하지 못하게 막고 싶을 경우 final을 멤버에 붙인다.
+
+```scala
+final class ArrayElement extends Element {
+  val contents: Array[String] = x123
+}
+
+class LineElement extends ArrayElement(Array(s)) { // 불가능
+  override def width = s.length
+  override def height = 1
+}
+```
+
+## 상속과 구성 사용
+
+상속과 구성은 이미 존재하는 클래스를 이용해 새로운 클래스를 정의하는 두 가지 방법이다. 코드 재사용을 추구하면 상속보다는 구성을 선호할 것이다.
+
+상속 관계에서 스스로에게 물어봄 직한 질문 중 하나는 상속 관계가 is-a 관계를 모델리한 것인지 여부다
+
+예를 들어 ArrayElement는 Element다(is-a) 라고 해도 합당하다.
+
+## above, beside, toString 구현
+
+Element의 above 메서드를 구현한다. 
+
+```scala
+abstract class Element {
+  def contents: Array[String]
+
+  def width: Int =
+    if (height == 0) 0 else contents(0).length
+
+  def height: Int = contents.length
+
+  // 2개의 요소가 가진 내용을 이어붙인다는 뜻이다. ++ 연산은 두 배열을 이어붙인다.
+  def above(that: Element): Element =
+    new ArrayElement(this.contents + that.contents)
+
+  // 2개의 요소를 서로 옆에 놓기 위해, 두 요소의 각 줄을 한 줄로 합친 결과가 새로운 요소의 각 줄이 되게 만드는 것
+  def beside(that: Element): Element =
+    new ArrayElement(
+      for (
+        (line1, line2) ‹- this.contents zip that.contents
+      ) yield line1 + line2
+  )
+  // Array(1, 2, 3) zip Array("a", "b") => Array((1, "a"), (2, "b"))
+
+  override def toString = contents mkString "\n"
+}
+
+// beside 축약 버전
+new ArrayElement(
+  for(
+    (line1, line2) <- this.contents zip that.contents
+  ) yield line1 + line2
+)
+```
+
+## 팩토리 객체 정의
+
+지금까지 클래스 계층을 갖추었다. 그대로 클라이언트에게 공개해서 사용하게 할 수도 있지만, 팩토리 객체 뒤로 감추고 제공하는 방법도 있다.
+
+팩토리 객체는 다른 객체를 생성하는 메소드를 제공하는 객체다. 클라이언트는 new를 이용해 객체를 만들기보다는 팩토리 메서드로 객체를 생성할 것이다.
+
+이점은 객체 생성 기능을 한곳에 모아서 제공하고 구체적인 내부 표현을 감출 수 있다는 것이다.
+
+```scala
+// 팩토리 메서드를 갖춘 객체
+object Element {
+  def elem(contents: Array[String]): Element =
+    new ArrayElement(contents)
+  def elem(chr: Char, width: Int, height: Int): Element =
+    new UniformElement(chr, width, height)
+  def elem(line: String): Element =
+    new LineElement(line)
+}
+
+// 팩토리 메서드를 사용하도록 리팩토링한 Element 클래스
+abstract class Element {
+  def contents: Array[String]
+  def width: Int = if (height == 0) 0 else contents(0).length
+  def height: Int = contents.length
+  def above(that: Element): Element =
+    elem(this.contents ++ that.contents)
+  def beside(that: Element): Element =
+    elem(
+      for(
+        (line1, line2) <- this.contents zip that.contents
+      ) yield line1 + yield line2
+    )  
+  override def toString = contets mkString "\n"
+}
+
+// 비공개 클래스로 구현 감추기
+object Element {
+  private class ArrayElement(
+    val contents: Array[String] ) extends Element
+  private class LineElement(s: String) extends Element {
+    val contents = Array(s)
+    override def width = s.length
+    override def height = 1
+  }
+  private class UniformElement(ch: Char,
+    override val width: Int,
+    override val height: Int) extends Element {
+    private val line = ch.toString * width
+    def contents = Array.fill(height)(line)
+  }
+  def elem(contents: Array[String]): Element = new ArrayElement(contents)
+  def elem(chr: Char, width: Int, height: Int): Element =
+    new UniformElement(chr, width, height)
+  def elem(line: String): Element = new LineElement(line)
+}
+```
+
