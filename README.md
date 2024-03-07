@@ -876,3 +876,233 @@ def multiTalbe() = {
   tableSeq.mkString("\n")
 }
 ```
+# 8장
+
+## 메소드
+
+함수를 정의하는 가장 흔한 방법은 특정 객체의 멤버로 함수를 만드는 것이다. 객체의 멤버인 함수를 메소드라고 부른다.
+
+```scala
+object LongLines {
+  def processFile(filename: String, width: Int) = {
+    val source = Source.fromFile(fileName)
+    for (line <- source.getLines()) {
+      processLine(filename, width, line)
+    }
+
+    private def processLine(filename: String, width: Int, line: String) = {
+      if (line.length > width)
+        println(filename + ": " + line.trim)
+    }
+  }
+
+  object FindLongLines {
+    def main(args: Array[String]) = {
+      val width = args(0).toInt
+      for (arg <- args.drop(1))
+        LongLines.processFile(arg, width)
+    }
+  }
+}
+```
+
+## 지역 함수
+
+잘 정의한 작업을 수행하는 다수의 작은 함수로 프로그램을 나누는 것은 함수형 프로그래밍의 중요한 설계 원칙이다.
+
+이와 같은 방식은 유연하게 조립할 수 있는 빌딩 블록을 제공한다는 장점이 있다.
+
+한가지 문제는 프로그램의 네임스페이스를 오염시킬 수 있다는 점이다. 재사용을 위해 함수를 클래스와 오브젝트로 패키징 하려면, 클래스를 사용하는 측에 대해 도우미 함수들을 감추는 것이 바람직하다.
+
+자바에서는 주로 비공개 메서드를 이용해 이러한 목적을 달성했고, 스칼라도 동일하게 사용하지만 한가지 방법이 더 있다.
+
+함수 안에 함수를 정의하여 사용하는 것이다.
+
+```scala
+// 위의 LongLines를 리팩토링 한 것, processLine을 processFile의 지역함수로 수정
+def processFile(fileName: String, width: Int) = {
+  def processLine(filename: String, width: Int, line: String) = {
+    if(line.length > width)
+      println(filename + ": " + line.trim)
+  }
+  val source = Source.fromFile(fileName)
+  for(line <- source.getLines()) {
+    processLine(filename, width, line)
+  }
+}
+```
+
+## 1급 계층 함수
+
+스칼라는 1급 계층 함수를 제공한다. 함수를 정의하고 호출할 뿐만 아니라 이름 없이 리터럴로 표기해 값처럼 주고 받을 수 있다.
+
+```scala
+// 어떤 수에 1을 더하는 함수 리터럴
+a = (x: Int) => {
+  println(x)
+  x + 1
+}
+a(10) // print(10), 11
+
+// 리스트의 모든 요소 출력
+n = List(1, 2, 3, 4)
+n.forEach((x: Int) => println(x))
+
+// filter
+n.filter((x: Int) => x > 3)
+```
+
+## 간단한 형태의 함수 리터럴
+
+함수 리터럴에서 정보의 중복을 제거하고 더 간략하게 작성할 수 있다. 간단하게 만드는 방법은 인자의 타입을 제거하는 것이다.
+
+```scala
+// x가 정수라는 사실을 아는데 이를 타깃 테이핑이라고 한다.
+n = List(1, 2, 3, 4)
+n.filter((x: Int) => x > 3)
+
+// 타깃 테이핑으로 타입 추론이 이뤄진 인자를 둘러싸는 괄호를 제거한다.
+n.filter(x => x > 3)
+```
+
+## 위치 표시자 문법
+
+함수 리터럴을 더 간결하게 만들기 위해 밑줄을 하나 이상의 파라미터에 대한 위치 표시자로 사용할 수 있다. 단 각 인자는 한 번씩만 나타나야 한다.
+
+```scala
+n = List(1, 2, 3, 4)
+n.filter(_ > 0) // n.filter(x => x > 3) 같음
+
+// 때로는 인자의 타입 정보를 찾지 못할 경우가 있는데 이럴때는 타입을 명시한다.
+val f = _ + _ // X
+val d = (_: Int) + (_: Int) // O
+```
+
+## 부분 적용한 함수
+
+이전의 예제에서 각 파라미터를 밑줄로 대처했지만, 전체 파라미터 목록을 밑줄로 바꿀 수 있다.
+
+> 솔직히 이건 잘 못쓸 것 같다.
+
+```scala
+n = List(1, 2, 3, 4)
+n.foreach(println _) // n.foreach(x => println(x)) 같음
+
+def sum(a: Int, b: Int, c: Int) = a + b + c
+
+val a = sum _
+a(1, 2, 3)
+a.apply(1, 2, 3)
+
+val b = sum (1, _: Int, 3)
+b(2) // sum (1, 2, 3)
+b(5) // sum (1, 5, 3)
+```
+
+## 클로저
+
+지금까지 모든 함수 리터럴 예지는 전달받은 인자만을 참조했는데, 다른 곳에서 정의한 변수를 참조할 수도 있다.
+
+주어진 함수 리터럴로부터 실행 시점에 만들어낸 객체인 함숫값을 클로저라고 부른다.
+
+```scala
+// 열린 코드 조각: 자유 변수가 있는 함수 리터럴
+var more = 1
+val addMore = (x: Int) => x + more
+addmore(10) // 10 + 1
+
+// 닫힌 코드 조각: 자유 변수가 없는 함수 리터럴
+(x: Int) => x + 1
+```
+
+**증가시키는 클로저**
+
+프로그램을 수행할 때 다수의 복사본을 갖고 있는 변수를 클로저에서 접근할 경우
+
+```scala
+def makeIncreaser(more: Int) = (x: Int) => x + more
+
+makeIncreaser(1) // 클로저가 하나 생기고 그 안에서 more를 1로 바인드 한다.
+```
+
+## 특별한 형태의 함수 호출
+
+반복 파라미터, 이름 붙인 인자, 디폴트 인자에 해당하는 개념이다.
+
+**반복 파라미터**
+
+스칼라에서는 함수의 마지막 파라미터를 반복 가능하다고 지정할 수 있다. 이를 이용하면 길이가 변하는 인자 목록을 함수에 전달할 수 있다.
+
+```scala
+def echo(args: String*) =
+  for (arg <- args) println(arg)
+
+echo("1")
+echo("1", "2")
+
+// 배열을 반복 인자로 전달하는 예제: 콜론에 기호를 추가한다.
+val Seq = Seq("a", "b", "c")
+echo(seq: _*)
+```
+
+**이름 붙인 인자**
+
+이름 붙인 인자는 파라미터 목록에 정해진 순서와 다른 순서로 함수에 인자를 전달하게 해준다. 
+
+각 인자 앞에 이름과 등호 표시만 위치시키는 것이다.
+
+```scala
+def speed(distance: Float, time: Float): Float = distance / time
+
+speed(distance = 100, time = 10)
+speed(time = 10, distance = 100)
+```
+
+**디폴트 인잣값**
+
+디폴트 값을 지정할 수 있는데, 지정한 파라미터가 있다면 함수 호출 시 해당 인자를 생략할 수 있다.
+
+```scala
+def printTime(out: java.io.PrintStream = Console.out, divisor: Int = 1) =
+  out.println("time" + divisor)
+printTime()
+printTime(divisor = 10)
+```
+
+## 꼬리 재귀
+
+var를 변경하는 while 루프를 val만 사용하는 더 함수형인 스타일로 바꾸려면 재귀를 사용하면 된다.
+
+```scala
+def approximate(guess: Double): Double =
+  if (isGoodEnough(guess)) guess
+  else approximate(improve(guess))
+  
+def approximateLoop(initialGuess: Double): Double = {
+  var guess = initialGuess
+  while (!isGoodEnough(guess))
+    guess = improve(guess)
+  guess
+}
+
+// 두 함수의 수행시간은 거의 동일하다. 하지만 위와 같은 근사치 추정 같은 경우 컴파일러의 최적화를 적용할 수 있다.
+```
+
+## 꼬리 재귀의 한계
+
+스칼라는 동일한 함수를 직접 재귀 호출하는 경우에만 최적화를 수행한다. 2개의 함수를 번갈아 호출하거나, 마지막 호출이 함숫값을 호출하는 경우에도 꼬리 재귀 최적화는 일어나지 않는다.
+
+```scala
+// 최적화가 발생하지 않는 케이스들
+
+def isEven(x: Int): Boolean = if (x == 0) true else isOdd(x - 1)
+def isOdd(x: Int): Boolean = if (x == 0) false else isEven(x - 1)
+
+val funValue = nestedFun _
+def nestedFun(x: Int): Unit = {
+  if(x != 0) {
+    println(x)
+    funValue(x - 1)
+  }
+}
+```
