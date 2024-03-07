@@ -27,6 +27,23 @@
   * [if 표현식](#if-표현식)
   * [while 루프](#while-루프)
   * [for 표현식](#for-표현식)
+- [8장](#8장)
+  * [메소드](#메소드)
+  * [지역 함수](#지역-함수)
+  * [1급 계층 함수](#1급-계층-함수)
+  * [간단한 형태의 함수 리터럴](#간단한-형태의-함수-리터럴)
+  * [위치 표시자 문법](#위치-표시자-문법)
+  * [부분 적용한 함수](#부분-적용한-함수)
+  * [클로저](#클로저)
+  * [특별한 형태의 함수 호출](#특별한-형태의-함수-호출)
+  * [꼬리 재귀](#꼬리-재귀)
+  * [꼬리 재귀의 한계](#꼬리-재귀의-한계)
+- [9장](#9장)
+  * [코드 중복 줄이기](#코드-중복-줄이기)
+  * [클라이언트 코드 단순하게 만들기](#클라이언트-코드-단순하게-만들기)
+  * [커링](#커링)
+  * [새로운 제어 구조 작성](#새로운-제어-구조-작성)
+  * [이름에 의한 호출 파라미터](#이름에-의한-호출-파라미터)
   
 # 1장
 
@@ -1105,4 +1122,109 @@ def nestedFun(x: Int): Unit = {
     funValue(x - 1)
   }
 }
+```
+
+# 9장
+
+## 코드 중복 줄이기
+
+모든 함수는 호출에 따라 달라지는 비공통 부분과 호출과 관계없이 일정한 공통 부분으로 나눠볼 수 있다.
+
+함수를 인자로 받는 함수를 고차 함수라 한다. 이러한 고차 함수는 코드를 간단하게 압축할 수 있는 더 많은 기회를 제공한다.
+
+```scala
+object FileMatcher {
+  private def filesHere = (new java.io.File(".")).listFiles
+  def filesEnding(query: String) = {
+    for (file <- filesHere
+         if file.getName.endsWith(query)) yield file
+  }
+  def filesContainig(query: String) = {
+    for(file <- filesHere
+        if file.getName.contains(query)) yield file
+  }
+  
+  // 위의 두 함수는 contains, endsWith만 다르지 나머지는 똑같다. 1급 계층 함수를 사용해 개선한 것이다.
+  object FileMatcher {
+    private def filesHere = (new java.io.File(".")).listFiles
+    private def filesMatching(matcher: String => Boolean) =
+      for (file <- filesHere
+           if matcher(file.getName)
+           ) yield file
+
+    def filesEnding(query: String) = filesMatching(_.endsWith(query))
+    def filesContaining(query: String) = filesMatching(_.contains(query))
+  }
+}
+```
+
+## 클라이언트 코드 단순하게 만들기
+
+고차 함수를 사용한다.
+
+```scala
+def containsNeg(nums: List[Int]): Boolean = {
+  var exists = false
+  for (num <- nums)
+    if (num < 0)
+      exists = true
+  exists
+}
+containsNeg(List(1, 2, 3, 4, 5))
+
+// 개선
+def newContainsNeg(nums: List[Int]) = nums.exists(_ < 0)
+newContainsNeg(Nil)
+newContainsNeg(List(1, 2, 3, 4))
+```
+## 커링
+
+언어에서 지원하는 듯한 제어 추상화 구문을 이해하려면 처링을 이해해야 한다. 커링한 함수는 인자 목록이 하나아 아니고 여럿이다.
+
+```scala
+// 전형적인 형태 함수
+def plainOldSum(x: Int, y: Int) = x + y
+plainOldSum(1, 2)
+
+// 커링한 함수 : 전형적인 함수를 2번 호출한 것과 같다.
+def curriedSum(x: Int)(y: Int) = x + y
+curriedSum(1)(2)
+
+// 위치 표시자를 사용하여 부분적용 함수로 사용
+val onePlus = curriedSum(1)_ // onePlus(2) => 3 
+val twoPlus = curriedSum(2)_ // twoPlus(2) => 4 
+```
+
+## 새로운 제어 구조 작성
+
+함수가 1급 계층인 언어에서는 언어의 문법이 고정되어 있더라도 새로운 제어구조를 작성할 수 있다. 함수를 인자로 받는 메서드만 작성하면 된다.
+
+```scala
+def twice(op: Double => Double, x: Double) = op(op(x))
+twice(_ + 1, 5) // 7.0
+
+// 빌려주기 패턴
+println{"H"} // println("H") 
+```
+
+> 빌려주기 패턴: 제어 추상화를 하는 함수가 자원을 열어 특정 함수에게 해당 자원을 빌려주는 것
+
+## 이름에 의한 호출 파라미터
+
+if, while과 유사하게 중괄호 사이에 값을 전달하는 내용이 없는 형태로 구현하는 것
+
+```scala
+var assertionsEnabled = true
+def myAssert(predicate: () => Boolean) = {
+  if (assertionsEnabled && !predicate)
+    throw new AssertionError
+}
+myAssert(() => 5 > 3)
+
+// => 기호를 없애고 싶을 때
+def byNameAssert(predicate: => Boolean) = {
+  if(assertionsEnabled && !predicate)
+    throw new AssertionError
+}
+byNameAssert(5 > 3)
 ```
