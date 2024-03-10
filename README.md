@@ -62,6 +62,14 @@
 - [11장](#11장)
   * [스칼라의 클래스 계층구조](#스칼라의-클래스-계층구조)
   * [바닥에 있는 타입](#바닥에-있는-타입)
+- [12장](#12장)
+  * [트레이트의 동작 원리](#트레이트의-동작-원리)
+  * [간결한 인터페이스와 풍부한 인터페이스](#간결한-인터페이스와-풍부한-인터페이스)
+  * [예제: 직사각형 객체](#예제:-직사각형-객체)
+  * [Ordered 트레이트](#Ordered-트레이트)
+  * [트레이트를 이용해 변경 쌓아 올리기](#트레이트를-이용해-변경-쌓아-올리기)
+  * [왜 다중 상속은 안 되는가](#왜-다중-상속은-안-되는가)
+  * [트레이트냐 아니냐, 이것이 문제로다](#트레이트냐-아니냐-이것이-문제로다)
   
 # 1장
 
@@ -1530,3 +1538,158 @@ scala.Null 과 scala.Nothing을 볼 수 있는데, 특이한 경우를 처리하
 Null 클래스는 null 참조의 타입이다. 이 클래스는 모든 참조 타입의 서브 클래스이다. Null은 값타입과는 호환성이 없다. null 을 정수 타입의 변수에 할당할 수 없다.
 
 Nothing은 스칼라 클래스 계층의 맨 밑바닥에 존재한다. 이 타입은 다른 모든 타입의 서브타입이다. 비정상적 종료를 표시할 때 사용한다.
+
+# 12장
+
+## 트레이트의 동작 원리
+
+<u>트레이트는 코드 재사용의 근간을 이루는 단위다.</u> 트레이트로 메서드와 필드 정의를 캡슐화하면 트레이트를 조합한 클래스에서 그 메서드나 필드를 재사용할 수 있다.
+
+트레이트의 정의는 trait 키워드를 사용한다는 점을 제외하면 클래스의 정의와 같다.
+
+트레이트를 정의하고 나면 extends나 with 키워드를 사용해 클래스에 조합하여 사용할 수 있다. 상속보다는 믹스인을 사용하려는 경향이 강하다.
+
+트레이트는 클래스 파라미터를 가질 수 없다.
+
+```scala
+trait Philosophical {
+  def philosophize() = {
+    println("test")
+  }
+}
+
+// extends 사용하여 믹스인
+class Frog extends Philosophical {
+  override def toString = "green"
+}
+
+// with를 이용한 트레이트 믹스인
+class Animal
+class Frog extends Animal with Philosophical {
+  override def toString = "red"
+}
+
+// 여러 트레이트의 믹스인
+class Animal
+trait HasLegs
+class Frog extends Animal with Philosophical with HasLegs {
+  override def toString = "gas"
+}
+
+// 클래스 파라미터를 가질 수 없다. - 우회하는 방법이 있는데 20장에서 알아본다.
+class Point(x: Int, y: Int) // 가능
+trait Toint(x: Int, y: Int) // 불가능
+```
+
+## 간결한 인터페이스와 풍부한 인터페이스
+
+트레이트의 주된 사용 방법 중 하나는 어떤 클래스에 그 클래스가 이미 갖고 있는 메소드를 기반으로 하는 새로운 메소드를 추가하는 것이다. 
+
+<u>간결한 인터페이스를 풍부한 인터페이스로 만들 때 트레이트를 사용할 수 있다.</u> 
+
+## 예제: 직사각형 객체
+
+직사각형 객체를 편리하게 쓰려면, 너비, 높이, 좌측 위치 등 기하학적 속성을 조회할 수 있는 기능을 제공하면 좋을 것이다.
+
+```scala
+// 기본적인 기하 클래스
+class Point(val x: Int, val y: Int)
+class Rectangel(val topLeft: Point, val bottomRight: Point) {
+  def left = topLeft.x
+  def right = bottomRight.x
+  def width = right - left
+}
+
+// 풍부한 트레이트 정의 및 믹스인 적용
+trait Rectangular {
+  def topLeft: Point
+  def bottomRight: Point
+  def left = topLeft.x
+  def right = bottomRight.x
+  def width = right - left
+}
+class Rectangle(val topLeft: Point, val bottomRight: Point) extends Rectangular
+
+// 사용
+val rect = new Rectangel(newPoint(1, 1), newPoint(10, 10))
+rect.left
+rect.right
+rect.width
+```
+
+## Ordered 트레이트
+
+풍부한 인터페이스를 이용하면 편리해지는 영역으로 비교가 있다. 
+
+```scala
+// Ordered가 없을 때
+class Rational(n: Int, d: Int) {
+  def <(that: Rational) = this.numer * that.denom < that.numer * this.denom
+  def >(that: Rational) = that < this
+  def <=(that: Rational) = (this < that) || (this == that)
+  def >=(that: Rational) = (this > that) || (this == that)
+}
+// Ordered를 적용한 코드
+class Rational(n: Int, d: Int) extends Ordered[Rational] {
+  def compare(that: Rational) = (this.numer * that.denom) - (that.numer * this.denom)
+}
+
+// 사용
+val half = new Rational(1, 2)
+val third = new Rational(1, 3)
+half < third
+half > third
+```
+
+> Ordered에서 equals는 정의하지 않는다. 타입 소거로 인해 객체 타입을 알 수 없기 때문이다 - 우회는 30장
+ 
+## 트레이트를 이용해 변경 쌓아 올리기
+
+트레이트의 두 번쨰 용도는 <u>클래스에 쌓을 수 있는 변경을 적용</u>할 수 있다. 클래스의 메서드를 변경할 수 있을 뿐만 아니라, 이런 변경 위에 다른 변경을 쌓을 수 있다.
+
+```scala
+// intQueue 추상 클래스
+abstract class IntQueue {
+  def get(): Int
+  def put(x: Int): Unit
+}
+
+// BasicIntQueue
+class BasicIntQueue extends IntQueue {
+  private val buf = new ArrayBuffer[Int]
+  def get() = buf.remove(0)
+  def put(x: Int) = { buf += x}
+}
+
+// 쌓을 수 있는 변경을 나타내는 Doubling 트레이트
+trait Doubling extends IntQueue {
+  abstract override def put(x: Int) = { super.put(2 * x) } // 트레이트는 super 호출이 가능하다. abs
+}
+
+class MyQueue extends BasicIntQueue with Doubling
+val queue = new MyQueue
+queue.put(10)
+queue.get()
+
+// new를 이용해 인스턴스를 생성하면서 트레이트 믹스인하기
+val queue = new BasicIntQueue with Doubling 
+queue.put(10)
+queue.get()
+```
+
+## 왜 다중 상속은 안 되는가
+
+트레이트는 여러 클래스 유사 구조를 상속받는 방법이지만, 많은 언어에서 볼 수 있는 다중 상속과는 차이가 있다. 특히 super의 해석이 중요하다.
+
+트레이트를 사용할 때는 특정 클래스에 믹스인한 클래스와 트레이트를 선형화해서 어떤 메서드를 호출할지 결정한다. 이 차이로 쌓을 수 있는 변경이 가능하다.
+
+## 트레이트냐 아니냐, 이것이 문제로다
+
+재사용 가능한 행위를 구현할 때마다, 트레이트를 사용할지 추상 클래스를 사용할지 결정해야한다. 가이드라인은 아래와 같다.
+
+> 1. 어떤 행위를 재사용하지 않을 거라면, 클래스로 만들어라.
+> 2. 서로 관련이 없는 클래스에서 어떤 행위를 여러 번 재사용해야 한다면, 트레이트로 작성하라
+> 3. 스칼라에서 정의한 내용을 자바코드에서 상속해야한다면, 추상 클래스를 사용하라.
+> 4. 컴파일한 바이너리 형태로 배포할 예정이고, 배포한 내용을 누군가가 상속해 사용할 것 같다면, 추상 클래스를 더 많이 사용하게 될 것이다.
+> 5. 모두 고려했음에도 판단이 서지 않는다면 보통 트레이트가 더 많은 가능성이 있다.
+
