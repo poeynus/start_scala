@@ -70,7 +70,13 @@
   * [트레이트를 이용해 변경 쌓아 올리기](#트레이트를-이용해-변경-쌓아-올리기)
   * [왜 다중 상속은 안 되는가](#왜-다중-상속은-안-되는가)
   * [트레이트냐 아니냐, 이것이 문제로다](#트레이트냐-아니냐-이것이-문제로다)
-  
+- [13장](#13장)
+  * [패키지 안에 코드 작성하기](#패키지-안에-코드-작성하기)
+  * [관련 코드에 간결하게 접근하기](#관련-코드에-간결하게-접근하기)
+  * [임포트](#임포트)
+  * [암시적 임포트](#암시적-임포트)
+  * [접근 수식자](#접근-수식자)
+ 
 # 1장
 
 ## 확장 가능한 언어
@@ -1693,3 +1699,229 @@ queue.get()
 > 4. 컴파일한 바이너리 형태로 배포할 예정이고, 배포한 내용을 누군가가 상속해 사용할 것 같다면, 추상 클래스를 더 많이 사용하게 될 것이다.
 > 5. 모두 고려했음에도 판단이 서지 않는다면 보통 트레이트가 더 많은 가능성이 있다.
 
+# 13장
+
+## 패키지 안에 코드 작성하기
+
+규모가 큰 프로그램을 작성할 때는 프로그램의 여러 부분이 <u>서로 의존하는 정도를 나타내는 커플링을 최소화 하는 것이 중요하다.</u>
+
+```scala
+// 모든 파일을 한 패키지 안에 넣기
+package bobsrockets.navigation
+class Navigator
+
+// 간단판 패캐지 선언을 길게 쓴 형태
+package bobsrockets.navigation {
+  class Navigator
+}
+
+// 한 파일에 여러 패키지 넣기
+package bobsrockets {
+  package navigation {
+    class Navigator
+    package tests {
+      class NavigatorSuite
+    }
+  }
+}
+```
+
+## 관련 코드에 간결하게 접근하기
+
+코드를 패키지 계층으로 나누는 이유는 사람들이 코드를 훑어볼 때 도움을 주기 위해서만은 아니다. <u>컴파일러도 같은 패키지 안에 코드가 서로 관련 있음을 알 수 있다.</u>
+
+```scala
+// 클래스와 패키지에 간결하게 접근하기
+package bobsrockets {
+  package navigation {
+    class Navigator {
+      val map = new StartMap
+    }
+    class starMap
+  }
+  class Ship {
+    val nav = new navigation.Navigator
+  }
+  package fleets {
+    class Fleet {
+      def addShip() = { new Ship }
+    }
+  }
+}
+
+// 숨겨진 패키지 이름에 접근하기
+package launch {
+  class Booster3
+}
+
+package bobsrockets {
+  package navigation {
+    package launch {
+      class Booster1
+    }
+    package launch {
+      class Booster2
+    }
+    class MissionControl {
+      val booster1 = new launch.Booster1
+      val booster2 = new bobsrockets.launch.Booster2 // 
+      val booster3 = new _root_.launch.Booster3 // 최상위 launch 패키지
+    }
+  }
+}
+
+```
+
+## 임포트
+
+스칼라에서 패키지와 멤버는 import절을 통해 불러올 수 있다.
+
+```scala
+// 임포트 준비가 된 밥의 과일 클래스
+package bobsdelights
+
+abstract class Fruit (
+ val name: String,
+ val color: String
+)
+object Fruits {
+  object Apple extends Fruit("apple", "red")
+  object Orange extends Fruit("orange", "orange")
+  object Pear extends Fruit("pear", "yellowish")
+  val menu = List(Apple, Orange, Pear)
+}
+
+import bobsdelights.Fruit// Fruit에 간단히 접근 - 싱글 타입 임포트
+import bobsdelights._ // bobsdelights 모든 멤버에 간단히 접근 - 주문식 임포트 (자바는 * 사용)
+import bobsdelights.Fruits._ // Fruits 모든 멤버에 간단히 접근 - 정적 클래스 필드를 불러오는 임포트
+
+// 싱글톤이 아닌 멤버 임포트
+def showFruit(fruit: Fruit) = {
+  import fruit._
+  println(name + color)
+}
+
+// 패키지 이름 불러오기
+import java.util.regex
+class AStarB {
+  val pat - regex.Pattern.compile("a*b")
+}
+
+import Fruits.{Apple, Orange} // Fruits에 Apple, Orange 호출
+import Fruits.{Apple => McIntosh, Orange} // Fruits에 Apple을 McIntosh로 변경해서 호출, Orange 호출
+import java.sql.{Date => SDate} // 원래이름을 새 이름으로 변경
+import Fruits.{_} // Fruits 객체로부터 모든 멤버 호출
+import Notebooks._
+import Fruits.{Apple => _, _} // Notebooks의 모든 멤버와 Apple을 제외한 Fruits의 모든 멤버 조회
+```
+
+## 암시적 임포트
+
+스칼라는 모든 프로그램에서 몇 가지 임포트를 항상 추가한다.
+
+```scala
+// 항상 추가하는 암시적 임포트
+import java.lang._
+import scala._
+import Predef._
+```
+
+## 접근 수식자
+
+패키지, 클래스, 객체 멤버 앞에 private와 protected 접근 수식자를 둘 수 있다.
+
+**비공개 멤버**
+
+비공개 멤버는 자바와 유사하다 private이 붙은 멤버는 오직 그 정의를 포함한 클래스나 객체 내부에서만 접근 할 수 있다. 일관성이 있으나 자바와는 다른다.
+
+```scala
+// 비공개 접근은 자바와 스칼라에서 어떻게 다른가
+class Outer {
+  class Inner {
+    private def f() = {println("f")}
+    class InnerMost {
+      f() // 문제 없음
+    }
+  }
+  (new Inner).f() // 불가능
+}
+```
+
+**보호 멤버**
+
+보호 멤버에 대한 접근은 자바보다 약간 더 제한적이다. 보호 멤버를 정의한 클래스의 서브클래스에서만 그 멤버에 접근할 수 있다.
+
+```scala
+// 보호 접근은 자바와 스칼라에서 어떻게 다른가
+package p {
+  class Super {
+    protected def f() = {println("f")}
+  }
+  class sub extends Super {
+    f()
+  }
+  class Other {
+    (new Super).f() // 불가능
+  }
+}
+```
+
+**공개 멤버**
+
+private나 protected가 없는 멤버는 모두 공개 멤버다. 공개 멤버를 위한 수식자는 없으며 어디에서나 접근 가능하다.
+
+**보호 스코프**
+
+스칼라에서는 접근 수식자의 의미를 지정자로 확장할 수 있다. 접근 지정자가 있는 수식자는 매우 세밀한 접근 제어를 가능케 한다.
+
+단순 접근 수식자로 바로 표현할 수 없는 패키지 비공개, 패키지 보호, 가장 바깥쪽 클래스 외부로는 비공개 같은 자바 접근 제어도 지정자를 사용해 할 수 있다.
+
+```scala
+// 접근 지정자를 사용해 보호 스코프를 유연하게 설정하기
+package bobsrockets 
+package navigation {
+  private[bobsrockets] class Navigator { // bobsrockets 패키지 내부에 있는 모든 객체와 클래스에서 Navigator 접근 가능
+    protected[navigation] def useStarChart() = {} // 보호 접근
+    class LegOfJourney {
+      private[Navigator] val distance = 100
+    }
+    private[this] var speed = 200
+  }
+}
+
+val other = new Navigator
+oher.speed // 컴파일 불가 speed가 private[this] 이기에
+
+package launch {
+  import navigation._
+  object Vehicle {
+    private[launch] val guide = new Navigator // 패키지 비공개 접근
+  }
+}
+```
+
+**가시성과 동반 객체**
+
+자바에서 정적 멤버와 인스턴스 멤버는 동일한 클래스에 속하고 접근 수식자를 그 멤버들에게 일률적으로 적용한다.
+
+스칼라는 정적멤버가 없는데, 그 대신 여러 멤버를 포함하며 단 하나만 존재하는 동반 객체가 있다.
+
+```scala
+// 동반 클래스와 객체의 비공개 멤버 접근
+// Rocket 객체는 Rocket 클래스의 동반 객체
+class Rocket {
+  import Rocket.fuel
+  private def canGoHomeAgain = fuel > 20
+}
+object Rocket {
+  private def fuel = 10
+  def chooseStrategy(rocket: Rocket) = {
+    if (rocket.canGoHomeAgain)
+      goHome()
+    else
+      pickAStar()
+  }
+  def goHome() = {}
+  def pickAStar() = {}
+}
+```
