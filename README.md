@@ -65,7 +65,7 @@
 - [12장](#12장)
   * [트레이트의 동작 원리](#트레이트의-동작-원리)
   * [간결한 인터페이스와 풍부한 인터페이스](#간결한-인터페이스와-풍부한-인터페이스)
-  * [예제: 직사각형 객체](#예제:-직사각형-객체)
+  * [예제 직사각형 객체](#예제-직사각형-객체)
   * [Ordered 트레이트](#Ordered-트레이트)
   * [트레이트를 이용해 변경 쌓아 올리기](#트레이트를-이용해-변경-쌓아-올리기)
   * [왜 다중 상속은 안 되는가](#왜-다중-상속은-안-되는가)
@@ -76,7 +76,12 @@
   * [임포트](#임포트)
   * [암시적 임포트](#암시적-임포트)
   * [접근 수식자](#접근-수식자)
- 
+- [14장](#14장)
+  * [단언문](#단언문)
+  * [스칼라에서 테스트 하기](#스칼라에서-테스트-하기)
+  * [명세로 테스트하기](#명세로-테스트하기)
+  * [프로퍼티 기반 테스트](#프로퍼티-기반-테스트) 
+
 # 1장
 
 ## 확장 가능한 언어
@@ -1923,5 +1928,144 @@ object Rocket {
   }
   def goHome() = {}
   def pickAStar() = {}
+}
+```
+
+# 14장
+
+## 단언문
+
+스칼라에서는 assert 메소드를 호출하는 방식으로 단언문을 선언한다. 조건을 충족하지 않는 경우 AssertionError를 발생시킨다. 설명의 타입은 Any로 어떤 객체라도 넘길 수 있다.
+
+```scala
+// 단언문의 사용
+def above(that: Element): Element = {
+  val this1 = this widen that.width
+  val this2 = that widen this.width
+  assert(this1.width == that.width)
+  elem(this1.contents ++ that1.contents)
+}
+
+// ensuring을 사용해 함수의 결과 확인하기
+private def widen(w: Int): Element = {
+  if (w <= width)
+    this
+  else {
+    val left = elem(' ', (w - width) / 2, height)
+    var right = elem(' ', w - width - left.width, height)
+    left beside this beside right
+  } ensuring(w <= _.width) // 암시적 변환, 어떤 결과 타입이든 적용 가능
+}
+```
+
+> ensuring은 술어 함수를 인자로 받는다. 술어는 메소드 결과의 타입을 받아서 Boolean을 반환하는 함수다.
+ 
+## 스칼라에서 테스트 하기
+
+스칼라 테스트는 가장 유연한 스칼라 테스트 프레임워크로서, 다른 문제를 풀기 위해 쉽게 커스터마이즈 할 수 있다.
+
+스칼라 테스트에서 중심적인 개념은 테스트 집합인 스위트다. 트레이트 Suite는 테스트들을 실행하기 위해 사전에 준비된 생명주기 메소드들을 선언하다.
+
+다른 테스트 스타일을 지원하기 위해 Suite를 확장하고 생명 주기 메소드를 오버라이드 하는 스타일 트레이트를 지원한다. 또한 특별한 테스트 요구를 해결하기 위해 생명 주기 메서드를 오버라이드 하는 믹스인 트레이트도 지원한다.
+
+```scala
+// AnyFunSuite로 테스트 작성하기 - 테스트 클래스로 확장된 테스트 스타일
+import org.sclatest.funsuite.AnyFunSuite
+import Element.elem
+
+class ElementSuite extends AnyFunSuite {
+  test("elem result should have passed width") {
+    val ele = elem('x', 2, 3)
+    assert(ele.width == 2)
+  }
+}
+```
+
+## 명세로 테스트하기
+
+동작 주도 개발(BDD) 테스트 스타일은 기대하는 코드의 동작을 사람이 읽을 수 있는 명세로 작성하고, 코드가 작동하느지 확인하는데 중점을 둔다
+
+명세 절을 사용해 테스트를 작성하며, 테스트할 주제에 대해 이름을 문자열로 적고, should | must | can 중 하나를 넣고, 해당 주제의 작동을 설명하는 문자열이 온 후, in이 따라온다. in 다음에는 중괄호 안에 지정한 동작을 테스트하는 코드를 작성한다.
+
+```scala
+// AnyFunSuite로 동작을 명세화하고 테스트하기
+import org.sclatest.flatspec.AntFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class ElementSpec extends AnyFlatSpec with Matchers {
+  "A UniformElement" should
+    "have a width equal to the passed value" in {
+    val ele = elem('x', 2, 3)
+    ele.wudth should be (2)
+  }
+  it should "have a height equal to the passed value" in {
+    val ele = elem('x', 2, 3)
+    ele.height should be (3)
+  }
+  it should "throw an IAE if passed a negative width" in {
+    an [IllegalArgumentException] should be thrownBy {
+      elem('x', 2, 3)
+    }
+  }
+}
+
+// 스펙스2 프레임워크로 동작을 명세화하고 테스트하기
+import org.specs2._
+
+object ElementSpecification extends Specification {
+  "A UniformElement" should {
+    "have a width equal to the passed value" in {
+      val ele = elem('x', 2, 3)
+      ele.width must be_==(2)
+    }
+    "have a height equal to the passed value" in {
+      val ele = elem('x', 2, 3)
+      ele.height must be_==(3)
+    }
+    "throw an AIE if passed a negative width" in {
+      elem('X', -2, 3) must throwA[IllegalArgumentException]
+    }
+  }
+}
+
+// 개발 참여자 사이의 통신을 원활하게 하기 위해 테스트 사용하기
+import org.scalatest._
+
+class TVSetSpec extends AnyFeatureSpec with GivenWhenThen {
+  Feature ("TV power button") {
+    Scenario("User presses power button when VT is off") {
+      Given("a VT set that is switched off") When ("the power button is pressed")
+      Then("the TV should switch on") pending
+    }
+  }
+```
+
+## 프로퍼티 기반 테스트
+
+리커드 닐슨이 작성한 오픈소스 프레임워크인 스칼라체크는 스칼라로 만들어진 또다른 테스트 도구다. 스칼라 체크는 테스트할 코드가 준수해야 하는 프로퍼티를 명시하게 해준다.
+
+각 프로퍼티에 대해 테스트 데이터를 생성한 다음, 프로퍼티를 잘 지키는지 검사한다.
+
+아래의 예시에서는 elem 팩토리가 지켜야 하는 한 가지 프로퍼티를 검사한다.
+
+whenever 절은 왼쪽 편에 있는 식이 true일 때마다 오른쪽에 있는 식이 true가 되어야 함을 명시한다.
+
+```scala
+// 스칼라체크로 프로퍼티 기반 테스트 작성하기
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.matchers.must.Matchers._
+import Element.elem
+class ElementSpec extends AnyWordSpec
+        with ScalaCheckPropertyChecks {
+  "elem result" must {
+    "have passed width" in {
+      forAll { (w: Int) =>
+        whenever(w > 0) {
+          elem('x', w % 100, 3).width must equal(w % 100)
+        }
+      }
+    }
+  }
 }
 ```
