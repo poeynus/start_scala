@@ -2069,3 +2069,109 @@ class ElementSpec extends AnyWordSpec
   }
 }
 ```
+
+# 15장
+
+## 케이스 클래스와 패턴 매치
+
+이들은 쌍둥이 구성요소로서, 일반적이고 캡슐화 되지 않은 데이터 구조를 작성할 떄 쓰인다. 트리 같은 재귀적 데이터에 유용하다.
+
+함수형 언어로 프로그래밍을 경험해보았다면 패턴 매치에 대해 알 테지만, 케이스 클래스는 아주 많은 코드를 작성하지 않고도 객체에 대한 패턴 매치를 해주는 새로운 개념이다.
+
+## 간단한 예
+
+설계할 도메인 특화 언어에(DSL)에 산술 표현식을 다루는 라이브러리가 필요하다고 생각해보자.
+
+이를 해결하기 위한 첫 단계는 입력 데이터를 정의하는 것이다. 아래의 예는 추상 기본 클래스 하나와 그 클래스를 상속한 4개의 서브 클래스로 구성 된다.
+
+```scala
+// 산술식을 계층 구조로 표현하기 - 변수와 숫자, 단항/이항 연산자만 다룬다.
+abstract class Expr
+case class Var(name: String) extends Expr
+case class Number(num: Double) extends Expr
+case class UnOp(operator: String, arg: Expr) extends Expr
+case class BinOp(perator: String, left: Expr, right: Expr) extends Expr
+
+```
+
+**케이스 클래스**
+
+각 서브클래스 앞에 case 라는 수식자가 있음을 주의깊게 보자. 이 수식자가 붙은 클래스를 케이스 클래스라고 한다.
+
+컴파일러는 클래스 이름과 같은 이름의 팩토리 메서드를 추가한다. 
+```scala
+val nv = new Var("x") // 이렇게 안해도 됨
+val v = Var("x") // new 생략 가능
+```
+
+케이스 클래스의 파라미터 목록에 있는 모든 인자에 암시적으로 val 접두사를 붙인다. 그래서 각 파라미터가 클래스의 필드도 된다.
+```scala
+val op = BinOp("+", Number(1), v) // BinOp = BinOp(+,Number(1.0), Var)
+```
+
+컴파일러는 케이스 클래스에 toString, hashCode, equals 메소드의 일반적인 구현을 추가한다. 
+
+모든 인자를 하나의 온전한 트리로 보고, 그것을 문자열로 만들거나 해시를 계산하거나 비교한다.
+```scala
+v.name // String = x
+op.left // Expr = Number(1.0)
+```
+
+컴파일러는 어떤 케이스 클래스에서 일부를 변경한 복사본을 생성하는 copy 메소드를 추가한다. 이 메소드는 기존의 인스턴스에서 하나 이상의 속성을 바꾼 새로운 인스턴스를 생성할 때 매우 유용하다.
+```scala
+println(op) // BinOp(+,Number(1,0),Var)
+op.right == Var("x") // Boolean = true
+op.copy(operator= "-") // BinOp = BinOp(-, Number(1.0), Var(x))
+```
+
+**패턴 매치**
+
+패턴 매치에는 case 키워드로 시작하는 여러 대안이 들어간다. 각 대안은 패턴과 셀렉터가 일치했을 때 계산되는 하나 이상의 표현식을 포함한다. 화살표 =>는 패턴과 계산할 표현식을 분리한다.
+
+"+"나 1 같은 상수 패턴은 == 연산자를 적용해서 매치 된다. e와 같이 변수만을 사용한 패턴은 모든 값과 매치할 수 있다.
+
+와일드 카드 패턴(_)은 모든 값과 매치할 수 있다 
+
+```scala
+// 패턴 매치를 사용하는 simplifyTop 함수
+def simplify(expr: Expr) = expr match {
+  case UnOp("-", UnOp("-", e)) => e // 부호를 두 번 반전
+  case BinOp("+", e, Number(0)) => e // 0을 더함
+  case BinOp("*", e, Number(1)) => e // 1을 곱함
+  case _ => expr
+}
+```
+
+**switch와 match의 비교**
+
+match 식은 자바 스타일 switch를 일반화한 것으로 볼 수 있고, 차이점이 세 가지 있다.
+
+> 1. 스칼라의 match는 표현식이다. 따라서 결과값을 내놓는다.
+> 2. 스칼라의 대안 표현식은 다음 케이스로 빠지지 않는다.
+> 3. 매치에 성공하지 못하는 경우 MatchError 예외가 발생한다.
+
+따라서 모든 가능한 경우를 처리하기 위해서는, 하는 일이 없더라고 디폴트 케이스를 반드시 추가해야 한다.
+
+```scala
+// 비어 있는 디폴트 케이스가 있는 패턴 매치
+expr match {
+  case BinOp(op, left, right) =>
+    println(s"$expr")
+  case _ =>
+}
+```
+ 
+## 패턴의 종류
+
+모든 패턴은 그에 상응하는 표현식과 비슷해 보인다. 패턴 문법은 너무나 명백하다. 따라서 어떤 종류의 패턴을 사용할 수 있는가에만 주의를 기울이면 된다.
+
+**와일드카드 패턴**
+
+와일드카드 패턴은 어떤 객체라도 매치할 수 있다. 
+```scala
+expr match {
+  case BinOp(op, left, right) =>
+    println(s"$expr")
+  case _ => // 와일드카드 패턴
+}
+```
