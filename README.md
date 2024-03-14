@@ -2175,3 +2175,140 @@ expr match {
   case _ => // 와일드카드 패턴
 }
 ```
+
+**상수 패턴**
+
+상수 패턴은 자신과 똑같은 값과 매치 된다. 어떤 종류의 리터럴이든 상수로 사용할 수 있다.
+
+```scala
+// 상수 패턴을 사용한 패턴 매치
+def describe(x: Any) = x match {
+  case 5 => "five"
+  case true => "truth"
+  case "hello" => "hi"
+  case Nil => "empty list"
+  case _ => "none"
+}
+```
+
+**변수 패턴**
+
+변수 패턴은 와일드카드 처럼 어떤 객체와도 매치된다. 와일드카드와 다른 점은 변수에 객체를 바인딩한다는 사실이다.
+
+```scala
+// 변수 패턴을 사용한 패턴 매치
+expr match {
+  case 0 => "zero"
+  case somthing => "not zero: " + somthing
+}
+```
+
+**생성자 패턴**
+
+생성자는 패턴 매치가 실제로 아주 큰 위력을 발휘할 수 있는 곳이다. 어떤 값이 해당 케이스 클래스의 멤버인지 검사한 다음, 객체의 생성자가 인자로 전달 받은 값들이 괄호 안의 패턴과 정확히 매치될 수 있는지 검사할 수 있다.
+
+이렇게 추가적인 패턴이 있다는 건, 스칼라 패턴의 깊은 매치를 지원한다는 뜻이다. 즉, 어떤 패턴이 제공 받은 최상위 객체를 매치시킬 뿐만 아니라, 추가적인 패턴으로 객체의 내용에 대해서도 매치를 시도한다.
+
+```scala
+// 생성자 패턴을 사용한 패턴 매치
+expr match {
+  case BinOp("+", e, Number(0)) => println("deep match")
+  case _ =>
+}
+```
+**시퀀스 패턴**
+
+배열이나 리스트 같은 시퀀스 타입에 대해서도 매치 시킬 수 있다.
+
+```scala
+// 길이가 정해진 시퀀스 패턴
+expr match {
+  case List(0, _, _) => println("found")
+  case _ =>
+}
+
+// 길이와 관계없이 매치할 수 있는 시퀀스 패턴
+expr match {
+  case List(0, _*) => println("found")
+  case _ =>
+}
+```
+
+**튜플 패턴**
+
+튜플 역시 매치 가능하다.
+
+```scala
+// 튜플 패턴을 사용하는 패턴 매치
+def tupleDemo(expr: Any) =
+  expr match {
+    case (a, b, c) => println("match" + a + b + c)
+    case _=>
+  }
+```
+
+**타입 지정 패턴**
+
+타입 검사나 타입 변환을 간편하게 하기 위해 타입 지정 패턴을 사용할 수 있다.
+
+```scala
+// 타입 지정 패턴을 사용한 패턴 매치
+def generalSize(x: Any) = x match {
+  case s: String => s.length
+  case m: Map[_, _] => m.size
+  case_ => -1
+}
+```
+
+**타입 소거**
+
+스칼라는 자바와 마찬가지로 제네릭에서 타입 소커 모델을 사용한다. 이는 실행 시점에 타입 인자에 대한 정보를 유지하지 않는다는 뜻이다.
+
+결과적으로 실행 시에는 어떤 맵 객체가 두 Int 타입을 타입 인자로 받아서 생성한 것인지, 다른 타입들을 받아서 생성한 것인지 알 방법이 없다.
+
+**변수 바인딩**
+
+변수가 하나만 있는 패턴 말고, 다른 패턴에 변수를 추가할 수도 있다. 단순히 변수 이름 다음에 @ 기호를 넣고 패턴을 쓰면 된다.
+
+```scala
+// @ 기호를 사용한 변수 바인딩이 있는 패턴
+expr match {
+  case UnOp("abs", e @ UnOp("abs", _)) => e
+  case _ =>
+}
+```
+
+**패턴 가드**
+
+때때로 문법적인 패턴 매치만으로는 부족한 경우 사용한다.
+
+```scala
+// 패턴 가드가 있는 match 표현식
+def simplifyAdd(e: Expr) = e match {
+  case BinOp("+", x, y) if x == y =>
+    BinOp("*", x, Number)
+  case _ => e
+}
+```
+
+**패턴 겹침**
+
+case의 순서가 중요하다.
+
+```scala
+// case의 순서가 중요함을 보여주는 match 표현의 
+def simplifyAll(expr: Expr): Expr = expr match {
+  case UnOp(*-", UnOp(*-", e)) =>
+simplifyA11(e) // -를두번적용하는경우
+  case BinOp("+", e, Number (0)) =>
+    simplifyA11(e) // 0은 연산의 항등원 
+  case BinOp("*", e, Number (1)) =>
+    simplifyA11(e)  // 1은* 연산의 항등원 
+  case UnOp(op, e) =>
+    UnOp(op, simplifyAll(e))
+  case BinOp(op, 1, r) =>
+    BinOp(op, simplifyA11(1), simplifyA11(r))
+  case _ => expr
+}
+```
+
