@@ -80,7 +80,14 @@
   * [단언문](#단언문)
   * [스칼라에서 테스트 하기](#스칼라에서-테스트-하기)
   * [명세로 테스트하기](#명세로-테스트하기)
-  * [프로퍼티 기반 테스트](#프로퍼티-기반-테스트) 
+  * [프로퍼티 기반 테스트](#프로퍼티-기반-테스트)
+- [15장](#15장)
+  * [케이스 클래스와 패턴 매치](#케이스-클래스와-패턴-매치)
+  * [간단한 예](#간단한-예)
+  * [패턴의 종류](#패턴의-종류)
+  * [봉인된 클래스](#봉인된-클래스)
+  * [Option 타입](#Option-타입)
+  * [패턴은 어디에나](#패턴은-어디에나)
 
 # 1장
 
@@ -2312,3 +2319,116 @@ simplifyA11(e) // -를두번적용하는경우
 }
 ```
 
+## 봉인된 클래스
+
+패턴 매치를 작성할 떄마다 모든 가능한 경우를 다 다뤘는지 확인할 필요가 있다. 디폴트 케이스를 추가해서 할 수 있지만, 이는 합적인 디폴트 동작이 있을때만 적용 가능하다.
+
+대안은 케이스 클래스의 슈퍼클래스를 봉인된 클래스로 만드는 것이다. 봉인된 클래스는 그 클래스와 같은 파일이 아닌 다른 곳에서 새로운 서브클래스를 만들 수 없다.
+
+패턴 매치를 위한 클래스 계층을 작성한다면, 그 계층에 속한 클래스를 봉인하는 것을 고려해야 한다. 단순히 sealed 키워드를 넣으면 된다.
+
+```scala
+// 봉인된 케이스 클래스 계층
+sealed abstract class Expr
+case class Var(name: String) extends Expr
+case class Number(num: Double) extends Expr
+case class UnOp(operator: String, arg: Expr) extends Expr
+case class BinOp(operator: String, left: Expr, right: Expr) extends Expr
+
+// 경고 발생 - match is not exhaustive
+// BinOp, UnOp를 처리하지 않기에 경고 발생
+def describe(e: Expr): String = e match {
+  case Number(_) => "a number"
+  case Var(_) => "a variable"
+}
+
+// 디폴트 케이스를 넣음으로써 해결 가능하지만, 이상적이지 않은 코드
+def describe(e: Expr): String = e match {
+  case Number(_) => "a number"
+  case Var(_) => "a variable"
+  case _ =>
+}
+
+// 그나마 나은 대안
+def describe(e: Expr): String = (e @unchecked) match {
+  case Number(_) => "a number"
+  case Var(_) => "a variable"
+}
+
+```
+
+## Option 타입
+
+스칼라에는 Option 표준 타입이 있다. 이 타입은 선택적인 값을 표현하며, 두 가지 형태가 있다.
+
+x가 실제 값이라면 Some(x)라는 형태로 값이 있음을 표현할 수 있고, 값이 없으면 None이라는 객체가 된다.
+
+## 패턴은 어디에나
+
+독립적인 match 표현식뿐 아니라, 스칼라의 여러 곳에서 패턴을 사용할 수 있다.
+
+**변수 정의에서 패턴 사용하기**
+
+val이나 var을 정의할 때 단순 식별자 대신 패턴을 사용할 수 있다.
+
+```scala
+// 할당문 하나로 여러 배열 정의하기
+val myTuple = (12, "abc")
+val (number, string) = myTuple
+
+val exp = new BinOp("*", Number(5), Number(1))
+val BinOp(op, left, right) = exp
+```
+
+**case를 나열해서 부분함수 만들기**
+
+함수 리터럴이 쓰일 수 있는 곳이라면 중괄호 사이에 case를 나열한 표현식도 쓸 수 있다. 본질적으로 case의 나열도 함수 리터럴이다.
+
+```scala
+val withDefault: Option[Int] => Int = {
+  case Some(x) => x
+  case None => 0
+}
+
+withDefault(Some(10)) // 10
+withDefault(None) // 0
+
+// case를 나열해 액터의 receive 메소드 정의
+var sum = 0
+def receive = {
+  case Data(byte) => sum += byte
+  case GetCheckSum(requester) => 
+    val checksum = ~(sum & 0xFF) + 1
+    requester ! checksum
+}
+
+// 부분 함수 정의
+// 경고 발생 - match is not exhaustive
+val second: List[Int] => Int = {
+  case x :: y :: _ => y
+}
+second(List(5,6,7)) // 정상
+second(List()) // error
+
+// 정수의 리스트를 받아 정수를 반환하는 부분 함수만을 포함하는 타입 PartialFunction[List[Int], Int]
+val second: PartialFunction[List[Int], Int] = {
+  case x :: y :: _ => y
+}
+//부분 함수가 어떤 값에 대해 결괏값을 정의하고 있는 지 알려주는 isDefinedAt
+second.isDefinedAt(List(5,6,7)) // true
+second.isDefinedAt(List()) // false
+```
+
+**for 표현식에서 패턴 사용하기**
+
+for 표현식 안에 패턴을 사용할 수 있다. for 표현식은 capitals 맵에서 모든 키/값 쌍을 가져온.
+
+```scala
+// 튜플 패턴을 사용하는 for 표현식
+for ((country, city) <- capitals)
+  println(country + city)
+
+// 패턴과 매치하는 리스트 원소 고르기
+val results = List(Some("apple"), None, Some("orange"))
+for (Some(fruit) <- results) println(fruit)
+```
