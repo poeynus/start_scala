@@ -88,6 +88,17 @@
   * [봉인된 클래스](#봉인된-클래스)
   * [Option 타입](#Option-타입)
   * [패턴은 어디에나](#패턴은-어디에나)
+- [16장](#16장)
+  * [리스트 리터럴](#리스트-리터럴)
+  * [리스트 타입](#리스트-타입)
+  * [리스트 생성](#리스트-생성)
+  * [리스트 기본 연산](#리스트-기본-연산)
+  * [리스트 패턴](#리스트-패턴)
+  * [List 클래스의 1차 메소드](#List-클래스의-1차-메소드)
+  * [List 클래스의 고차 메서드](#List-클래스의-고차-메서드)
+  * [List 객체의 메소드](#List-객체의-메소드)
+  * [여러 List를 함께 처리하기](#여러-List를-함께-처리하기)
+  * [스칼라의 타입 추론 알고리즘 이해](#스칼라의-타입-추론-알고리즘-이해)
 
 # 1장
 
@@ -2432,3 +2443,349 @@ for ((country, city) <- capitals)
 val results = List(Some("apple"), None, Some("orange"))
 for (Some(fruit) <- results) println(fruit)
 ```
+
+# 16장
+
+## 리스트 리터럴
+
+리스트는 배열과 꽤 비슷하지만 차이점이 두 가지 있다. 리스트는 변경이 불가능하고 원소를 할당문으로 변경할 수 없다. 리스트의 구조는 재귀적이지만, 배열은 평면적이다.
+
+## 리스트 타입
+
+배열과 마찬가지로 리스트도 동종 원소로 이뤄진다. 즉 리스트에 속한 원소의 타입은 모두 같다. 원소의 타입이 T인 리스트를 List[T]라 한다.
+
+스칼라 리스트 타입은 공변적이다. 이는 S가 T의 서브 타입이면 List[S]도 List[T]의 서브 타입이라는 뜻이다.
+
+## 리스트 생성
+
+모든 리스트는 기본적으로 빌딩 블록인 Nil과 ::(콘즈)로 만들 수 있다. 중위 연산자 :: 는 리스트의 앞에 원소를 추가한다.
+
+```scala
+val nums = 1 :: 2 :: Nil
+```
+
+## 리스트 기본 연산
+
+리스트의 모든 연산은 다음 세 가지를 가지고 표현할 수 있다. head와 tail은 비어있지 않은 리스트에서만 유효하다.
+
+> 1. head는 어떤 리스트의 첫 번쨰 원소를 반환한다.
+> 2. tail은 어떤 리스트의 첫 번째 원소를 제외한 나머지 원소로 이뤄진 리스트다.
+> 3. isEmpty는 리스트가 비어 있다면 true를 반환한다.
+
+## 리스트 패턴
+
+리스트에 패턴 매치를 사용해 각 부분으로 나눌 수 있다. 리스트 패턴은 리스트 표현식과 일대일로 대응된다.
+
+```scala
+// 리스트 원소 패턴의 예
+val List(a, b, c) = fruit
+val a :: b :: rest = fruit
+
+// 패턴 매치를 사용한 삽입 정렬
+def isort(xs: List[Int]): List[Int] = xs match {
+  case List() => List()
+  case x :: xs => insert(x, isort)
+}
+def insert(x: Int, xs: List[Int]): List[Int] = xs match {
+  case List() => List
+  case y :: ys => if (x <= y) x :: ys
+                  else y :: insert(x, ys)
+}
+```
+
+## List 클래스의 1차 메소드
+
+어떤 메소드가 함수를 인자로 받지 않는다면, 그 메소드를 1차 메소드라 부른다. 
+
+**두 리스트 연결하기**
+
+::와 비슷한 연산자로 :::라는 리스트 연결 연산이 있다.
+
+xs ::: ys ::: zs 이 식은 오른쪽으로 결합하기에 xs ::: (ys ::: zs) 이렇게 해석된다.
+
+```scala
+List(1, 2) ::: List(3, 4, 5) // List(1, 2, 3, 4, 5)
+List(1, 2, 3) ::: List // List(1, 2, 3 
+```
+
+**분할 정복 원칙**
+
+:::은 List 클래스 안에 구현되어 있는 메소드다. 하지만 리스트에 패턴 매치를 사용해 직접 구현할 수도 있다.
+
+```scala
+def append[T](xs: List[T], ys: List[T]): List[T] =
+  xs match {
+    case List() => ys
+    case x :: xs1 => x :: append(xs1, ys)
+  }
+```
+
+> 위의 코드에서 두번째 case문이 분라 정복 원칙에서 정복 부분을 설명한다.
+
+> 원하는 결과가 어떤 형태가 되어야 할 지 선택, 알고리즘을 적합한 부분에 재귀적으로 호출해서 계산, 구한 부분으로부터 결과 생성
+
+**리스트 길이 구하기**
+
+length 메소드를 사용한다.
+
+```scala
+List(1, 2, 3).length
+```
+
+**리스트 양 끝에 접근하기**
+
+head는 첫 번쨰 원소를 반환하고, tail은 첫 번째 원소를 제외한 나머지 리스트를 반환 한다. 이 둘 모드 쌍대성 연산이 있다.
+
+head의 쌍대성 연산인 last는 비어 있지 않은 리스트의 마지막 원소를 반환하며, tail의 쌍대성 연산인 init은 마지막 원소를 제외한 모든 리스트를 반환한다.
+
+```scala
+// 둘 다 빈 리스트에서 호출하면 에러가 발생한다.
+val abcde = List(1, 2, 3, 4, 5)
+abcde.last // 5
+abcde.init // List(1, 2, 3, 4)
+```
+
+**리스트 뒤집기**
+
+리스트 끝을 자주 참조하면, 리스트의 방향을 거꾸로 뒤집은 다음 결과를 가지고 작업하는 편이 때때로 더 낫다.
+
+
+```scala
+val abcde = List(1, 2, 3, 4, 5)
+abcde.reverse // List(5, 4, 3, 2, 1)
+```
+
+**접두사와 접미사**
+
+drop과 take 연산은 리스트에서 임의의 접두사나 접미사를 반환한다는 점에서 tail과 init을 일반화 한 것이다.
+
+splitAt 연산은 주어진 인덱스 위치에서 리스트를 분할해서 두 리스트가 들어있는 순서쌍을 반환한다.
+
+```scala
+abcde take 2 // List(1, 2)
+abcde drop 2 // List(3, 4, 5)
+abcde splitAt 2 (List(1, 2), List(3, 4, 5))
+```
+
+**원소 선택하기**
+
+임의의 원소를 선택하는 것은 apply 메소드를 통해 지원한다. 그러나 이 메소드는 배열에 비해 리스트에서는 자주 사용하지 않는다. indices 메소드는 리스트에서 유효한 모든 인덱스 리스트를 반환한다.
+
+```scala
+abcde apply 2 // 이렇게 사용하는 건 드물다 3
+abcde(2) // 이거도 드물다 3
+abcde.indices // Range(0, 1, 2, 3, 4)
+```
+
+**리스트의 리스트를 한 리스트로 반듯하게 만들기**
+
+flattern 메소드는 리스트의 리스트를 인자로 받아서, 하나의 리스트로 반듯하게 펼친다. 리스트의 원소가 모두 리스트인 경우에만 적용할 수 있다.
+
+```scala
+List(List(1, 2), List(3), List(), List(4, 5)).flatten // List(1, 2, 3, 4, 5)
+```
+
+**두 리스트를 순서쌍으로 묶기**
+
+zip 연산은 두 리스트를 인자로 받아서 순서쌍의 리스트를 만든다. 길이가 다르면 길이가 긴 쪽에 남는 원소는 버린다.
+
+zipWithIndex는 리스트의 모든 원소와 그 원소의 위치를 묶는다.
+
+모든 튜플 리스트는 unzip을 사용해 리스트의 튜플로 바꿀 수 있다.
+
+```scala
+a.indices zip b // Vector((0,a), (1,b))
+
+abcde.zipWithIndex // List((1,0), (2,1) ...))
+
+zipped.unzip // (List(1, 2, 3), List(1, 2, 3))
+```
+
+**리스트 출력하기**
+
+toString 연산은 리스트에 대한 표준 문자열 표현을 반환한다. 다른 표현을 원한다면 mkString을 사용할 수 있다.
+
+xs mkString(pre, sep, post), 피연산자가 4개이며 xs는 대상 리스트, 모든 원소 앞에 출력할 접두가 pre, 원소 사이에 출력할 분리 문자열, sep, 마지막 출력 post가 있다.
+
+xs mkString sep == xs.mkString("", sep, "")
+
+```scala
+abcde.mkString("[", ",", "]") // [1,2,3,4,5]
+abcde.mkString "" // abcde
+```
+
+**리스트 변환하기**
+
+평면적인 배열과 재귀적인 리스트에서 데이터를 변환하고 싶다면, List 클래스의 toArray메서드나 Array 클래스의 toList를 사용한다.
+
+copyToArray는 리스트 원소를 어떤 배열의 특정 지점부터 연속적으로 복사한다.
+
+이터레이터를 사용해 접근해야하면, iterator를 사용하면 된다.
+
+```scala
+val arr = abcde.toArray // Array(1, 2, 3, 4, 5)
+arr.toList // List(1, 2, 3, 4, 5)
+
+val arr2 = new Array[Int](5) // Array(0, 0, 0, 0, 0)
+List(1,2,3).copyToArray(arr2, 3)
+arr2 // Array(0, 0, 0, 1, 2, 3, 0, 0)
+
+val it = abcde.iterator
+it.next // 1
+it.next // 2
+```
+
+## List 클래스의 고차 메서드
+
+모든 리스트 원소를 어떤 방법으로 변환하거나, 어떤 특성을 만족하는지 확인하거나, 특정 기준을 만족하는 원소를 뽑는 패턴을 고차 연산자라고 한다.
+
+**리스트 매핑**
+
+xs map f 연산은 피연산자로 List[T] 인 xs 리스트와 T => U 인 f 함수를 받는다.
+
+flatMap 연산자는 map과 유사하다. 하지만 오른쪽 피연산자로 원소의 리스트를 반환하는 함수를 받는다.
+
+```scala
+List(1, 2, 3) map (_ + 1) // List(2, 3, 4)
+var words = List("the", "quick", "brown", "fox")
+words map (._length) // List(3, 5, 5, 3)
+words map (_.toList.reverse.mkString) // List(eht, kciuq, nworb, xof)
+
+// map flatMap 차이
+words map (._toList) // List(List(t, h, e), List(q, u, i, c, k) ...) 
+words flatMap (._toList) // List(t, h, e, q, u, i, c, k ...)
+
+List.range(1, 5) flatMap(
+        i => List.range(1, i) map (j => (i, j))
+)
+// List((2, 1), (3,1), (3,2), (4,1), (4,2), (4,3))
+```
+
+**리스트 걸러내기**
+
+xs fillter p 는 List[T] 인 xs와 t => Boolean 타입의 술어 함수 p 를 받는다.
+
+partitiondms filter와 같지만 리스트의 순서쌍을 반환한다.
+
+find도 filter와 같지만 만족하는 모든 원소를 반환하지 않고 첫 번째 원소만 반환한다.
+
+takeWhile과 dropWhile도 오른쪽 피연산자로 술어 함수를 받는다.
+
+```scala
+List(1, 2, 3, 4, 5) filter (_ % 2 == 0) // List(2, 4)
+words filter (._length == 3) // List(the, fox)
+
+List(1, 2, 3, 4, 5) partition(_ % 2 == 0) // (List(2, 4), List(1, 3, 5))
+
+List(1, 2, 3, 4, 5) find (_ % 2 == 0) // Some(2)
+
+List(1, 2, 3, -4, 5) takeWhile(_ > 0) // List(1, 2, 3)
+
+words dropWhile (_ startsWidth "t") // List(quick, brown, fox)
+```
+
+**리스트 전체에 대한 술어**
+
+xs forall p 은 인자로 리스트 xs와 술어 함수 p를 받는다. 모든 원소가 p를 만족할 때 true이다.
+
+xs exist p 는 만족하는 원소가 하나라도 존재하면 true를 반환한다.
+
+```scala
+def hasZeroRow(m: List[List[Int]]) =
+  m.exists(row => row forall (_ == 0))
+hasZeroRow(diag3) // false
+```
+
+**리스트 폴드**
+
+리스트의 원소를 연산자를 통해 결합할 때 사용한다.
+
+```scala
+def sum(xs: List[Int]): Int = xs.foldLeft(0)(_ + _)
+```
+
+> 어려워
+
+**리스트 정렬**
+
+xs sortWith before 연산은 리스트 xs를 두 원소를 비교할 수 있는 함수 before를 사용해 정렬한다. x before y는 x가 y 앞에 있어야 하면 true를 반환한다.
+
+```scala
+List(1, -3, 4, 2, 6) sortWith(_ < _) 
+words sortWith (_.length > _.length)
+```
+
+## List 객체의 메소드
+
+리스트를 생성하는 팩토리 메소드와 특별한 모양의 리스트에서 동작하는 연산을 알아볼 것이다.
+
+**원소로부터 리스트 만들기**
+
+코드로 보자
+
+```scala
+List.apply(1, 2, 3) // List(1, 2, 3)
+```
+**수의 범위를 리스트로 만들기**
+
+range는 어떤 범위를 구성하는 수로 이뤄진 리스트를 만든다.
+
+```scala
+List.range(1, 5) // List(1, 2, 3, 4)
+List.range(1, 9, 2) // List(1, 3, 5, 7)
+```
+
+**균일한 리스트 만들기**
+
+fill 메소드는 같은 원소를 0번 이상 반복한 리스트를 만든다.
+
+```scala
+List.fill(5)('a') // List(a, a, a, a, a)
+List.fill(2, 3)('b') // List(List(b, b, b), List(b, b))
+```
+
+**함수 도표화**
+
+tabulate는 제공된 함수로 계산한 원소의 리스트를 생성한다.
+
+```scala
+val squares = List.tabulate(5)(n => n * n)// List(0, 1, 4, 9, 16)
+val multi = List.tabulate(5, 5)(_ * *) // 0,0,0,0,0 , 0,1,2,3,4 , 0,2,4,6,8, , 0,3,6,9,12 , 0,4,8,12,16
+```
+
+**여러 리스트 연결하기**
+
+concat은 여러 리스트를 연결한다.
+
+```scala
+List.concat(List('a', 'b'), List('c')) // List(a, b, c)
+```
+
+## 여러 List를 함께 처리하기
+
+zip은 두 리스트로부터 순서쌍의 리스트를 만들어 두 리스트를 한꺼번에 처리할 수 있다. 단점은 zip이 중간 리스트를 만들기에 비용이 발생하고, map이 취하는 함수가 튜플을 인자로 받는다는 점이다. 이로 인해 위치지정자를 사용할 수 없다.
+
+layzZip이 zip의 문제를 해결해준다. zip과의 차이는 컬렉션을 즉시 돌려주지 않는다.
+
+exists와 forall도 지연계산 zip에 해당하는 버전이 있다.
+
+```scala
+(List(10, 20) zip List(3,4,5)).map {case (x,y) => x * y} // List(30, 80)
+(List(10, 20) lazyZip List(3,4,5)).map {case (x,y) => x * y} // List(30, 80)
+(List("abc", "de") lazyZip List(3, 2)).forall(_.length == _) // true
+(List("abc", "de") lazyZip List(3, 2)).exists(_.length != _) // false
+```
+
+## 스칼라의 타입 추론 알고리즘 이해
+
+sortWith와 msort의 다른점 하나는 비교함수에 허용하는 문법적인 형태다
+
+```scala
+msort[Char]((x: Char, y: Char) => x > y)(abcde) // List(e, d, c, b, a)
+abcde sortWith (_ > _) // List(e, d, c, b, a)
+
+// msort는 더 간결하게 쓸 수 있다.
+msort(_ > _)(abcde)
+```
+
+
