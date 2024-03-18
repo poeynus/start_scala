@@ -99,6 +99,12 @@
   * [List 객체의 메소드](#List-객체의-메소드)
   * [여러 List를 함께 처리하기](#여러-List를-함께-처리하기)
   * [스칼라의 타입 추론 알고리즘 이해](#스칼라의-타입-추론-알고리즘-이해)
+- [17장](#17장)
+  * [컬렉션](#컬렉션)
+  * [시퀀스](#시퀀스)
+  * [집합과 맵](#집합과-맵)
+  * [변경 가능 컬렉션과 변경 불가능 컬렉션](#변경-가능-컬렉션과-변경-불가능-컬렉션)
+  * [컬렉션 초기화](#컬렉션-초기화)
 
 # 1장
 
@@ -2786,6 +2792,264 @@ abcde sortWith (_ > _) // List(e, d, c, b, a)
 
 // msort는 더 간결하게 쓸 수 있다.
 msort(_ > _)(abcde)
+```
+
+# 17장
+
+## 컬렉션
+
+스칼라는 풍부한 컬렉션 라이브러리를 지원한다.
+
+## 시퀀스
+
+시퀀스 타입은 순서가 정해진 데이터 그룹을 가지고 작업할 수 있게 해준다. 원소에 순서가 있기에 특정 순어의 원소를 요구할 수 있다.
+
+**리스트**
+
+변경 불가능한 연결 리스트다. List는 앞부분에 빠르게 원소를 추가하거나 삭제할 수 있다. 그러나 리스트를 순차적으로 따라가야만 하기 때문에 임의의 위치에 접근할 때는 빠르지 않다.
+
+첫 번째 원소를 빠르게 추가하고 삭제할 수 있다는 건, 패턴 매치를 잘할 수 있다는 뜻이다. 리스트의 불변성은 리스트를 복사하지 않아도 되기 때문에 효율 적이면서 올바른 알고리즘에 도움된다.
+
+**배열**
+
+배열은 원소의 시퀀스를 저장하며, 임의의 위치에 있는 원소에 효율적으로 접근하게 해준다. 0을 기준으로 하는 인덱스를 사용해 원소를 읽거나 변경할 수 있다.
+
+```scala
+val fiveInts = new Array[Int](5) // Array(0, 0, 0, 0, 0)
+val fiveToOne = new Array[Int](5, 4, 3, 2, 1) // Array(5, 4, 3, 2, 1)
+fiveInts(0) = fiveToOne(4) // Array(1, 0, 0, 0, 0)
+```
+
+**리스트 버퍼**
+
+List 클래스는 리스트의 앞쪽에 대해서는 빠른 접근을 제공하지만, 끝쪽에는 그렇지 않다. 리스트의 끝부분에 원소를 추가하려면 리스트의 앞에 원소를 추가해 뒤집힌 리스트를 만들고, reverse를호출해야 한다.
+
+reverser를 피하는 방법은 ListBuffer를 사용하는 것이다. ListBuffer는 변경가능한 객체다. ListBuffer는 원소를 추가할 필요가 있을 때 효율적으로 리스트를 생성한다.
+
+또한 ListBuffer는 List의 잠재적인 스택 오버플로를 피하기 위해서이다.
+
+```scala
+import scala.collection.mutable.ListBuffer
+val buf = new ListBuffer[Int]
+buf += 1 // ListBuffer(1)
+buf += 2 // ListBuffer(1, 2)
+3 += : buf // ListBuffer(3, 1, 2)
+buf.toList // List(3, 1, 2)
+```
+
+**배열 버퍼**
+
+ArrayBuffer는 끝부분과 시작 부분에 우너소를 추가하거나 삭제할 수 있다는 점만 제외하면 배열과 같다. 구현을 감싸주는 층 때문에 속도가 다소 느리다.
+
+```scala
+import scala.collection.mutable.ArrayBuffer
+val buf = new ArrayBuffer[Int]()
+buf += 12 // ArrayBuffer(12)
+buf += 13 // ArrayBuffer(12, 15)
+buf.length // 2
+buf(0) == 12
+```
+
+**문자열(StringOps)**
+
+StringOps는 많은 시퀀스 메소드를 구현한 것이다. Predef에 String을 StringOps로 바꾸는 암시적 변환이 있기 때문에 시퀀스 처럼 문자열을 다룰 수 있다.
+
+```scala
+def hasUpperCase(s: String) = s.exists(_.isUpper)
+hasUpperCase("Robert") // true
+hasUpperCase("asd") // false
+```
+
+## 집합과 맵
+
+Set이나 Map을 만들면 디트로 변경 불가능한 객체가 생긴다. 변경 가능한 객체를 원한다면 명시적으로 임포트 해야 한다.
+
+스칼라는 변경 가능한 것보단, 변경 불가능한 객체를 더 권장하기에 변경 불가능한 객체를 더 쉽게 접근할 수 있도록 한다.
+
+```scala
+// Predef 안에 있는 디폴트 맵과 집합 정의
+object Predef {
+  type Map[A, +B] = collection.immutable.Map[A, B]
+  type Set[A] = collection.immutable.Set[A]
+  val Map = collection.immutable.Map
+  val Ser = collection.immutable.Set
+}
+
+// 변경가능한 Set
+val mutaSet = collection.mutable.Set(1, 2, 3)
+```
+
+**집합의 사용**
+
+집합의 핵심 특징은 특정 객체는 최대 하나만 들어가도록 보장한다는 점이다. 이때 ==으로 결정한다.
+
+```scala
+val text = "See Sopt run,. Run, Spot, Run!"
+val wordsArray = text.split(("[ !,. ]+")) // 문자열을 공백 또는 구두점 문자가 존재하는 각 위치에서 분리하는 정규표현식
+// Array(See, Spot, run, Run, Spot, Run)
+val words = mutable.Set.empty[String]
+for (word <- wordsArray)
+  words += word.toLowerCase
+words // Set(see, run, spot)
+```
+
+**맵의 사용**
+
+맵은 어떤 값과 집합의 각 원소 사이에 연관 관계를 만든다. 배열을 사용하는 것과 비슷하지만, 정수 인덱스가 아닌 키를 사용할 수 있다는 점이 다르다.
+
+```scala
+val mutable.Map.empty[String, Int]
+map("hello") = 1
+map("there") = 2
+map // Map(hello -> 1, there -> 2)
+map("hello") // 1
+```
+
+**디폴트 집합과 맵**
+
+대부분의 경우 Set이나 Map등의 팩토리가 제공하는 변경 가능하거나 불가능한 집합과 맵 구현만으로도 충분하다.
+
+변경 불가능한 집합과 맵에 대해서, 팩토리에 얼마나 많은 원소를 전달하느냐에 따라 팩토리가 만드는 클래스는 달라진다.
+
+| 원소개수 | 변경 불가능한 집합 디폴트 구현                   |
+|------|-------------------------------------|
+| 0    | scala.collection.immutable.EmptySet |
+| 1    | scala.collection.immutable.Set1     |
+| 2    | scala.collection.immutable.Set2     |
+| 3    | scala.collection.immutable.Set3     |
+| 4    | scala.collection.immutable.Set4     |
+| 5 이상 | scala.collection.immutable.HashSet  |
+
+
+| 원소개수 | 변경 불가능한 맵 디폴트 구현                    |
+|------|-------------------------------------|
+| 0    | scala.collection.immutable.EmptyMap |
+| 1    | scala.collection.immutable.Map1     |
+| 2    | scala.collection.immutable.Map2     |
+| 3    | scala.collection.immutable.Map3     |
+| 4    | scala.collection.immutable.Map4     |
+| 5 이상 | scala.collection.immutable.HashMap  |
+
+**정렬된 집합과 맵**
+
+때때로 정해진 순서대로 원소를 반환하는 이터레이터를 제공하는 맵이나 집합이 필요할 수도 있다. 스칼라 컬렉션에는 TreeSet과 TreeMap 클래스가 있다.
+
+두 클래스 모두 원소나 키를 다루기 위해 적흑 트리를 사용한다. 순서는 Ordering 트레이트를 따라 결정한다.
+
+```scala
+import scala.collection.immutable.TreeSet
+val ts = TreeSet(9, 3, 1, 8, 0, 2, 7, 4, 6, 5) // TreeSet(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+val cs = Treeseq('f', 'u, 'n') // TreeSet(f, n, u)
+
+import scala.collection.immutable.TreeMap
+val tm = TreeMap(3 -> 'x', 1 -> 'x', 4 -> 'x') // Map(1 -> x, 3 -> x, 4 -> x)
+tm += (2 -> 'x') // Map(1 -> x, 2 -> x, 3 -> x, 4 -> x)
+```
+
+## 변경 가능 컬렉션과 변경 불가능 컬렉션
+
+문제에 따라서는 변경 가능 컬렉션이 더 좋을 수도 있다. 또 어떤 경우는 변경 불가능한 컬렉션이 더 좋기도 하다.
+
+어떤 것을 선택해야 할 지 모그렜다면, 변경 불가능한 컬렉션으로 시작하고 나중에 필요에 따라 바꾸는데 좋다. 변경 불가능한 컬렉션이 프로그램을 추론하기가 더 쉽기 때문이다.
+
+프로그램을 추론하기 더 쉬울 수 있다는 것과 더불어, 변경 불가능 컬렉션은 컬렉션에 저장할 원소의 수가 더 적은 경웅 변경 가능 컬렉션보다 일반적으로 더 작게 저장할 수 있다.
+
+변경 불가능한 컬렉션에서 변경 가능한 컬렉션으로 바꾸거나 그 역으로 바꾸는 일을 쉽게 하기 위해, 스칼라에서는 몇 가지 문법적 편의를 제공한다.
+
+```scala
+val people = Set("Nancy", "Jane")
+people += "Bob" // Error: val로는 불가능
+
+var people = Set("Nancy", "Jane")
+people += "Bob" // Success : Set(Nancy, Jane, Bob) - 새로운 컬렉션을 생성한 다음, 그 새 컬렉션을 가리키도록 재할당
+
+people -= "Jane"
+people ++= List("Tom", "Harry") // Set(Nancy, Bob, Tom, Harry)
+
+// 변경 불가능한 Map을 변경 가능한 Map으로 변경
+var capital = Map("US" -> "Washington")
+capital += ("Japan" -> "Tokyo")
+
+import scala.collection.mutable.Map // 추가하면 됨
+```
+
+## 컬렉션 초기화
+
+컬렉션을 초기화하고 생성하는 일반적인 방법은 초기 원소를 컬렉션 동반 객체의 팩토리 메소드에 넘기는 것이다. 이 호출을 통해 apply 메소드 호출로 변환한다.
+
+때때로 어떤 컬렉션을 생성하면서 컴파일러가 지정하는 것고 다튼 타입을 명시하고 싶을 수 있는데, 이는 변경 가능한 컬렉션에서 문제가 되곤 한다. 선언시 각 괄호 사이에 타입을 명시하면 된다.
+
+```scala
+// 문제가 되는 예
+import scala.collection.mutable
+val stuff = mutable.Set(42)
+stuff += "abracadabra" // Error
+
+// 해결
+val nStuff = mutable.Set[Any](42)
+nStuff += "abracadabra" // Success
+
+// 어떤 컬렉션을 다른 컬렉션으로부터 초기화시 문제
+val colors = List("blue", "yellow")
+val treeSet = TreeSet(colors) // Error
+
+// 해결
+val nTreeSet = colors to TreeSet // Success
+```
+
+**배열이나 리스트로 바꾸기**
+
+컬렉션을 임의의 다른 컬렉션으로 변환해주는 일반적인 to 메소드와 더불어, 더 구체적인 메소드도 있다. 리스트는 toList, 배열은 toArray를 호출하면 된다.
+
+명심해야 할 사항은, 리스트나 배열 변환시 컬렉션의 모든 원소를 복하해야 하기 때문에 크기가 아주 큰 경우 느릴 수도 있다. 하지만 대부분의 컬렉션에는 그리 많지 않은 원소만 들어 있기 때문에, 복사로 인한 속도 손실은 그다지 크지 않다.
+
+```scala
+treeSet.toList
+treeSet.toArray
+```
+
+**변경 가능한 집합과 변경 불가능한 집합 사이의 변환**
+
+앞에서 본 to 메소드를 사용할 수 있다.
+
+```scala
+import scala.collection.mutable
+val mutaSet = treeSet to mutable.Set
+val immutaSet = mustaSet to Set
+
+val muta = mutable.Map("i" -> i "ii" -> 2)
+val immu = muta to Map
+```
+
+**튜플**
+
+튜플은 정해진 개수의 원소를 한데 묶는다. 배열이나 리스트와 달리 튜플은 원소 타입이 서로 다를 수 있다.
+
+튜플을 사용하면 데이터만 저장하는 단순한 클래스를 정의해야 하는 번거로움을 덜 수 있다. 튜플은 각기 다른 타입의 객체를 결합할 수 있기에 Iterable을 상속하지 않는다.
+
+튜플을 사용하는 가장 일반적인 경우는 메소드에서 여러 값을 반환하는 것이다.
+
+```scala
+def longestWord(words: Array[String]): (String, Int) = {
+  var word = words(0)
+  var idx = 0
+  for (i <- 1 until words.length) {
+    if (words(i).length > word.length) {
+      word = words(i)
+      idx = 1
+    }
+    (word, idx)
+  }
+}
+
+val longest = longestWord("The quick brown fox".split(" ")) // (quick, 1)
+longest._1 // quick
+longest._2 // 1
+
+val (word, idx) = longest // word = quick, idx = 1
+
+// 괄호가 없으면 다른 결과가 나온다 - 여러개의 정의를 제공한다.
+val world idx = longest // word = (quick, 1), idx = (quick, 1)
 ```
 
 
