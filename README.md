@@ -105,6 +105,10 @@
   * [집합과 맵](#집합과-맵)
   * [변경 가능 컬렉션과 변경 불가능 컬렉션](#변경-가능-컬렉션과-변경-불가능-컬렉션)
   * [컬렉션 초기화](#컬렉션-초기화)
+- [18장](#18장)
+  * [변경 가능한 객체](#변경-가능한-객체)
+  * [재할당 가능한 변수와 프로퍼티](#재할당-가능한-변수와-프로퍼티)
+  * [예시: 디지털 회로를 위한 언어](#예시-디지털-회로를-위한-언어)
 
 # 1장
 
@@ -3052,4 +3056,118 @@ val (word, idx) = longest // word = quick, idx = 1
 val world idx = longest // word = (quick, 1), idx = (quick, 1)
 ```
 
+# 18장
 
+## 변경 가능한 객체
+
+지급까지는 함수적인(변경 불가능한) 객체를 다뤘다. 실제 세계에서 시간에 따라 변하는 객체를 모델링한다면 변경 가능한 객체를 사용하는 편이 더 자연스럽다.
+
+순수 함수형 객체의 필드에 접근하거나 메소드를 호출하면 항상 동일한 결과가 나온다.
+
+```scala
+// 변경 가능한 은행 계좌 클래스
+class BankAccount {
+  private var bal: Int = 0
+  def balance: Int = bal
+    def deposit(amount:Int) = {
+      require(amount > 0)
+      bal += amount
+    }
+  def withdraw(amount: Int): Boolean =
+    if (amount > bal) false
+    else {
+      bal -= amount
+      true
+    }
+}
+
+// 서로 다른 결과를 반환
+val account = new BankAccount
+account deposit 100
+account withdraw 80 // true
+account withdraw 80 // false
+```
+
+## 재할당 가능한 변수와 프로퍼티
+
+재할당이 가능한 변수에 대해 두가지 기본 연산을 수행할 수 있다. 값을 읽는 것과 새로운 값을 할당하는 것이다. 자바빈즈의 경우 Getter, Setter메소드로 캡슐화한다.
+
+스칼라는 비공개가 아닌 모든 var 멤버에 Getter, Setter를 자동으로 정의해준다. 하지만 자바의 관례와 다르다 var x 의 Getter는 x이고 Setter는 x_= 이다.
+
+```scala
+// 공개 var이 있는 클래스
+class Time {
+  var hour = 12
+  var minute = 0
+}
+
+// 공개 var이 getter, setter로 어떻게 확장되는지 보여주는 예
+class Time{
+  private[this] var h = 12
+  private[this] var m = 0
+  def hour: Int = h
+  def hour_= (x: Int) = {h = x}
+  def minute: Int = m
+  def minute_= (x: Int) = {m = x}
+  
+  // getter, setter를 직접 정의하기
+  def hour_= (x: Int) = {
+    require(0 <= x && x < 24)
+    h = x
+  }
+  def minute_= (x: Int) = {
+    require(x <= && x < 60)
+    m = x
+  }
+}
+// 연관된 필드 없이 게터나 세터 정의하기
+class Thermometer {
+  var celsius: Float = _
+  def fahrenheit: celsius * 9 / 5 + 32
+  def fahrenheit_= (f:Float) = {
+    celsius = (f - 32) * 5 / 9
+  }
+  override def toString = s"${fahrenheit}F/${celsius}C"
+}
+```
+
+## 예시: 디지털 회로를 위한 언어
+
+디지털 회로는 선과 기능 블록을 가지고 만든다. 선은 신호를 전달하고, 기능 블록은 신호를 변화 시킨다. 신호는 Boolean 값으로 나타내며 켜져있으면 true 반대면 false이다.
+
+> 예시라서 넘어가려 했는데 내부 DSL의 좋은 예라고 해서 작성, 시뮬레이션 관련은 넘어가겠습니다.
+
+
+| 기능      | 내용                  |
+|---------|---------------------|
+| 인버터     | 신호를 반전 시킨다.         |
+| 논리곱 게이트 | 출력을 입력의 교집합으로 설정한다. |
+| 논리합 게이트 | 출력을 입력의 합집합으로 설정한다. |
+
+```scala
+val a, b, c = new Wire // 선을 의미하는 Wire 클래스
+
+def inverter(input: Wire, output: Wire)
+def andGate(a1: Wire, a2: Wire, output: Wire)
+def orGate(o1: Wire, o2: Wire, output: Wire)
+
+// 반가산기를 구현한 halfAdder
+def halfAdder(a: Wire, b: Wire, s: Wire, c: Wire) = {
+  val d, e = new Wire
+  orGate(a, b, d)
+  andGate(a, b, c)
+  inverter(c, e)
+  andGate(d, e, s)
+}
+
+// 전가산기를 수현한 fullAdder
+def fullAdder(a: Wire, b: Wire, cin: Wire, sum: Wire, cout: Wire) = {
+  val s, c1, c2 = new Wire
+  halfAdder(a, cin, s, c1)
+  halfAdder(b, s, su, c2)
+  orGate(c1, c2, cout)
+}
+```
+
+
+ 
