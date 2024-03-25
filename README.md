@@ -109,7 +109,17 @@
   * [변경 가능한 객체](#변경-가능한-객체)
   * [재할당 가능한 변수와 프로퍼티](#재할당-가능한-변수와-프로퍼티)
   * [예시: 디지털 회로를 위한 언어](#예시-디지털-회로를-위한-언어)
-
+- [19장](#19장)
+  * [함수형 큐](#함수형-큐)
+  * [정보 은닉](#정보-은닉)
+  * [변성 표기](#변성-표기)
+  * [변성과 배열](#변성과-배열)
+  * [변성 표기 검사](#변성-표기-검사)
+  * [하위 바운드](#하위-바운드)
+  * [반공변성](#반공변성)
+  * [객체의 비공개 데이터](#객체의-비공개-데이터)
+  * [상위 바운드](#상위-바운드)
+  
 # 1장
 
 ## 확장 가능한 언어
@@ -3169,5 +3179,250 @@ def fullAdder(a: Wire, b: Wire, cin: Wire, sum: Wire, cout: Wire) = {
 }
 ```
 
+# 19장
 
+## 함수형 큐
+
+함수형 큐는 다음 세 연산을 제공하는 데이터 구조다.
+
+| 기능      | 내용                                   |
+|---------|--------------------------------------|
+| head    | 큐의 첫 원소를 반환한다.                       |
+| tail    | 큐의 첫 원소를 제외한 나머지를 반환한다.              |
+| enqueue | 인자로 주어진 원소를 큐의 맨 뒤에 추가한 새로운 큐를 반환한다. |
+
+```scala
+// 기본 함수형 큐
+class Queue[T](private val leading: List[T], private val trailing: List[T]) {
+  private def mirror =
+    if (leading.isEmpty)
+      new Queue(trailing.reverse, Nil)[ActiveMQ 설치 가이드 1874b88be54d4e6686e25d4f488fad03.md](..%2F..%2F..%2F..%2FDownloads%2F310cd9f6-4e9d-4c4f-94e4-df42902dea30_Export-17f6208d-72de-46ba-8d4b-a384e86e7d1d%2FActiveMQ%20%EC%84%A4%EC%B9%98%20%EA%B0%80%EC%9D%B4%EB%93%9C%201874b88be54d4e6686e25d4f488fad03.md)
+    else
+      this
+
+  def head = mirror.leading.head
+
+  def tail = {
+    val q = mirror
+    new Queue(q.leading.tail, q.trailing)
+
+    def enqueue(x: T) =
+      new Queue(leading, x :: trailing)
+  }
+}
+```
  
+## 정보 은닉
+
+위의 큐는 효율성 측면에서 볼 떄 꽤 좋다. 하지만 불필요하게 내부 구현을 자세히 노출하면서 효율성을 달성했기에 애매하다. 여기서 클라이언트 코드에게 이 생성자를 감추어 적용할 것이다.
+
+**비공개 생성자와 팩토리 메소드**
+
+자바에서는 생성자를 비공개로 만들어 숨길 수 있다. 스칼라에서는 명시적으로 주 생성자를 정의하지 않지만 클래스 파라미터와 본문에 의해 암시적으로 주 생성자가 만들어진다.
+
+```scala
+// private를 사용해 주 생성자 숨기기
+class Queue[T] private (
+ private val leading: List[T],
+ private val trailing: List[T]                      
+)
+
+// 동반 객체의 apply 메소드
+object Queue {
+  def apply[T](xs: T*) = new Queue[T](xs.toList, Nil)
+}
+```
+
+**비공개 클래스**
+
+좀 더 급진적인 방법으로는 클래스 자체를 감추고, 클래스에 대한 공개 인터페이스만을 제공하는 트레이트를 외부로 노출하는 방법이 있다.
+
+```scala
+// 함수형 큐의 타입 추상화
+trait Queue[T] {
+  def head: T
+  def tail: Queue[T]
+  def enqueue(x: T): Queue[T]
+}
+object Queue {
+  def apply[T](xs: T*): Queue[T] =
+    new QueueImpl[T](xs.toList, Nil)
+  private class QueueImpl[T] (
+    private val leading: List[T],
+    private val trailing: List[T]
+ ) extends Queue[T] {
+    def mirror =
+      if(leading.isEmpty)
+        new QueueImpl(trailing.reverse, Nil)
+      else
+     this
+   def head: T = mirror.leading.head
+   def tail: QueueImpl[T] = {
+     val q = mirror
+     new QueueImpl(q.leading.tail, q.trailing)
+   } 
+   def enqueue(x: T) = new QueueImpl(leading, x :: trailing)
+  }
+}
+```
+
+## 변성 표기
+
+위의 Queue는 트레이트이며 타입이 아니다. Queue가 타입이 아닌 이유는 타입 파라미터를 받기 때문이다. 그래서 Queue 타입의 변수를 만들 수 가 없다.
+
+그 대신 Queue 트레이트는 파라미터화된 타입을 지정하도록 허용한다. 따라서 Queue는 트레이트이고, Queue[String]은 타입이다. Queue는 타입 생성자, 제네릭 트레이트라고도 한다.
+
+스칼라에서 제네릭 타입은 기본적으로 무공변(융통성이 없다)이다. 하지만 정의의 첫 줄을 수정하면 서브타입 관계에 공변성(유연성)을 요구할 수 있다.
+
+```scala
+// 무공변셩 Cell 클래스
+class Cell[T](init: T) { 
+  private[this] var current = init
+  def get = current
+  def set(x: T) = {current = x}
+}
+
+// Error
+val c1 = new Cell[String]("abc")
+val c2: Cell[Any] = c1
+c2.set(1)
+```
+
+## 변성과 배열
+
+원소 타입과 관계없이 배열을 이 메소드에 넘길 수 있으려면 배열이 공변적이어야 한다. 물론 자바에 제네릭이 생기면서 타입 파라미터를 가지고 사용할 수 있도록 상황이 바뀌었고,
+공변적인 배열은 더 이상 필요가 없어졌다. 하지만 호환성 문제 때문에 여전이 이런 특징이 남아있다.
+
+## 변성 표기 검사
+
+지금까지는 타입 건전성에 위배되는 경우가 모두 필드 재할당이나 배열 원소와 관계가 있었다. 반면 큐의 순수 함수형은 공변성의 좋은 예가 될 수 있다.
+
+스칼라는 클래스나 트레이트 본문의 모든 위치를 긍정적, 부정적, 중립적으로 구분한다.  
+
+```scala
+// queue의 서브 클래스
+class StrangeIntQueue extends  Queue[Int] {
+  override def enqueue(x: Int) = {
+    println(math.sqrt(x))
+    super.enqueue(x)
+  }
+}
+
+// 반례
+val x: Queue[Any] = new StrangeIntQueue
+x.enQueue("abc")
+
+// Queue가 class Queue[+T] 공변적으로 바뀐다면 error 발생
+// 재할당 가능한 필드는 +로 표시한 타입 파라미터를 메서드 파라미터에 사용할 수 없는 특별한 규칙 때문에
+```
+
+## 하위 바운드
+
+Queue 클래스로 돌아가, T는 enqueue의 파라미터 타입인데 위치가 부정확하기에 공변저긍로 만들 수 있다.
+
+enqueue를 다형성으로 일반화하고 타입 파라미터에 하위 바운드로 사용하여 문제를 벗어날 수 있다.
+
+U >: T를 사용하여 T를 U의 하위 바운드로 지정하였다. U는 T의 슈퍼타입이어야 하고, enqueue의 파라미터도 T가 아닌 U를 사용한다.
+
+이 예제는 타입 위주 설계의 좋은 예다.
+
+```scala
+// 하위 바운드가 있는 타입 파라미터
+class Queue[+T] (private val leading: List[T], private val trailing: List[T]) {
+  def enqueue[U >: T](x: U) = new Queue[U](leading: x :: trailint)
+}
+```
+
+## 반공변성
+
+지금까지 예제는 공변성이거나 무공변이 경우였다. 하지만 반공변이 자연스러운 경우도 있다.
+
+U 타입의 값이 필요한 모든 경우를 T 타입의 값으로 대치할 수 있다면, T 타입을 U 타입의 서브타입으로 가정해도 안전하다는 것이다. 이를 일컬어 리스코프 치환 원칙이라 한다.
+
+```scala
+// 반공변 출력 채널
+// OutputChannel[String]을 사용하려면 OuputChannel[AnyRef]를 사용하는 것이 안전하다.
+trait OutputChannel[-T] {
+  def write(x: T): Unit
+}
+
+// Function1의 반공변성과 공변성
+trait Function1[-S, +T] {
+  def apply(x: S): T
+}
+
+
+// 함수 타입 파라미터의 변성을 보여주는 예
+class Publication(val title: String)
+class Book(title: String) extends Publication(title)
+object Library {
+  val books: Set[Book] = Set(
+    new Book("P"), new Book("W")
+  )
+  def printBookList(info: Book => AnyRef) = {
+    for (book <- books) println(info(book))
+  }
+}
+object Customer extends App {
+  def getTitle(p: Publication): String = p.title
+  Library.printBookList(getTitle())
+}
+```
+
+## 객체의 비공개 데이터
+
+Queue에 leading이 비어있는데 head를 여러 번 연속으로 호출하는 경우, mirror 연산이 trailing 리스트를 leading 리스트로 반복해서 복사하는 문제가 있다.
+이런 복사로 인한 낭비는 부수 효과를 활용해 방지할 수 있다.
+
+```scala
+// 최적화한 함수형 큐
+class Queue[+T] private(private[this] var leading: List[T], private[this] var trailing: List[T]) {
+  private def mirror() =
+    if (leading.isEmpty) {
+      while (!trailing.isEmpty) {
+        leading = trailing.head :: leading
+        trailing = trailing.tail
+      }
+    }
+
+  def head: T = {
+    mirror()
+    leading.head
+  }
+
+  def tail: Queue[T] = {
+    mirror()
+    new Queue(leading.tail, trailing)
+  }
+
+  def enqueue[U >: T](x: U) =
+    new Queue[U](leading, x :: trailing)
+}
+```
+
+## 상위 바운드
+
+새로운 정렬 함수가 인자로 받는 리스트의 타입이 Ordered를 혼합하도록 요구하기 위해 상위 바운드를 사용할 필요가 있다.
+
+상위 바운드는 하위 바운드와 비슷하게 지정하며, 하위 바운드는 >: 를 사용하지만 상위 바운드는 <: 기호를 사용한다.
+
+```scala
+// 상위 바운드롤 사용한 병합 정렬
+def orderedMergeSort[T <: Ordered[T]](xs: List[T]): List[T] = {
+  def merge(xs: List[T], ys: List[T]): List[T] =
+    (xs, ys) match {
+      case (Nil, _) => ys
+      case (_, Nil) => xs
+      case (x :: xs1, y :: ys1) =>
+        if (x < y) x: merge(xs1, ys)
+    else y :: merge (xs, ys1)
+    }
+
+  val n = xs.length / 2
+  if (n == 0) xS
+  else {
+    val (ys, zs) = xs splitAt n
+    merge(orderedMergeSort(ys), orderedMergeSort(zs))
+  }
+}
+```
