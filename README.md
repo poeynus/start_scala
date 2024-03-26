@@ -3426,3 +3426,215 @@ def orderedMergeSort[T <: Ordered[T]](xs: List[T]): List[T] = {
   }
 }
 ```
+
+# 20장
+
+## 추상멤버
+
+클래스나 트레이트의 멤버가 그 클래스 안에 완전한 정의를 갖고 있지 않으면 추상 멤버라 한다. 추상 멤버는 그 멤버가 정의된 클래스를 상송한 서브클래스에서 구현하도록 되어 있다.
+
+네 가지 종류의 추상 멤버가 있으며 각각 val, var, 메소드, 타입 이다.
+
+## 추상 멤버 간략하게 돌아보기
+
+추상 타입, 메소드, val, var 종류의 추상 멤버를 하나씩 정의한다.
+
+```scala
+trait Abstract {
+  type T
+  def transform(x: T): T
+  val initial: T
+  var current: T
+}
+
+class Concrete extends Abstract {
+  type T = String
+  def transform(x: String) = x + x
+  val initial = "hi"
+  var current = initial
+}
+```
+
+## 타입 멤버
+
+스칼라에서 추상 타입은 크래스나 트레이트의 멤버로 정의 없이 선언된 타입이다. 클래스 자체는 추상적일 수도 있고 아닐 수도 있으며, 트레이트는 정의상 추상적이지만, 그 둘은 추상 타입이라 부르지 않는다.
+
+스칼라의 추상 타입은 Abstract 트레이트의 T 타입처렁 항상 어떤 클래스나 트레이트의 멤버다.
+
+## 추상 val
+
+추상 val 선언은 다음과 같은 형태다. val에 대해 이름과 타입은 주지만 값은 지정하지 않는다. 값은 서브클래스의 구체적 val 정의가 제공해야 한다.
+
+```scala
+// 추상 val 선언
+val initial: String
+
+// 구체적 정의
+val initial = "hi"
+
+
+// 추상 val과 파라미터 없는 메소드 오버라이드 하기
+abstract class Fruit {
+  val v: String
+  def m: String
+}
+abstract class Apple extends Fruit {
+  val v: String
+  val m: String // def 를 val로 오버라이드
+}
+abstract class BadApple extends Fruit {
+  def v: String // val은 def로 오버라이드 불가
+  def m: String
+}
+```
+
+## 추상 var
+
+동일하게 이름과 타입만을 사용하며 초깃값은 지정할 필요가 없다. 
+
+```scala
+// 추상 var 변수 선언
+trait AbstractTime {
+  var hour: Int
+  var minute: Int
+}
+
+// 추상 var을 게터와 세터로 확장
+trait AbstractTime {
+  def hour: Int
+  def hour_=(x: Int): Unit
+  def minute: Int
+  def minute_-(x: Int): Unit
+}
+```
+
+**추상 val 초기화**
+
+추상 val은 때때로 슈퍼클래스 파라미터와 같은 역할을 한다. 슈퍼클래스에 빠진 자세한 부분을 서브클래스에 전달할 수 있는 수단을 제공한다.
+
+트레이트에는 파라미터를 넘길 생성자가 없기에 중요하다.
+
+```scala
+trait RationalTrait {
+  val numerArg: Int
+  val denomArg: Int
+}
+
+// 트레이트를 혼합한 익명 클래스
+new RationalTrait {
+  val numerArg = 1
+  val denomArg = 2
+}
+
+// 추상 val을 사용하는 트레이트
+trait RationalTrait {
+  val numerArg: Int
+  val denomArg: Int
+  require(denomArg != 0)
+  private val g = gcd(numerArg, denomArg)
+  val numer = numerArg / g
+  val denom = denomArg / g
+  private def gcd(a: Int, b: Int): Int =
+    if(b == 0) a else gcd(b, a % b)
+  override def toString = s"$numer/$denom"
+}
+```
+
+**필드를 미리 초기화 하기**
+
+슈퍼클래스를 호출하기 전에 서브클래스의 필드를 초기화 한다. 필드 정의를 중괄호에 넣어서 슈퍼클래스 생성자 호출 앞에 위치하면 된다.
+
+```scala
+// 익명 클래스 표현식에서 필드를 미리 초기화하기
+val x = 2
+new {
+  val numerArg = 1 * x
+  val denomArg = 2 * x
+} with RationTrait
+
+// 객체 정의에서 필드를 미리 초기화하기
+object twoThirds extends {
+  val numerArg = 2
+  val denomArg = 3
+} with RationalTrait
+
+// 클래스 정의에서 필드를 미리 초기화하기
+class RaitionalClass(x: Int, d: Int) extends {
+  val numerArg = n
+  val denomArg = d
+} with RationalTrait {
+  def + (that: RationalClass) = new RationalClass(
+    numer * that.denom + that.numer * that.denom, denom * that.denom
+  )
+}
+```
+
+**지연 계산 val 변수**
+
+미리 초기화한 필드를 사용해 클래스 생성자 인자를 초기화하는 방식을 정확하게 따라 할 수 있다. 하지만 때로는 시스템이 스스로 모든 것을 어떻게 초기화 할지 결정하게 두는 편이 나은 경우도 있다.
+
+어떤 val 정의를 lazyh하게 만들면 가능하다
+
+```scala
+// trait를 지연 val로 초기화하기
+trait LazyRationalTrait {
+  val numerArg: Int
+  val denomArg: Int
+  lazy val numer = numerArg / g
+  lazy val denom = denom / g
+
+  override def toStrong = s"$numer/$denom"
+
+  private lazy val g = {
+    require(denomArg != 0)
+    gcd(numerArg, denomArg)
+  }
+
+  private def gcd(a: Int, b: Int): Int =
+    if (b == 0) a else gcd(b, a % b)
+}
+
+val x = 2
+new LazyRationalTrait {
+  val numerArg = 1 * x
+  val denomArg = 2 * x
+}
+```
+
+## 추상 타입
+
+다른 모든 추상 선언과 마찬가지로, 추상 타입 선언은 서브클래스에서 구체적으로 정의해야 하는 어떤 대상에 대한 빈 공간을 마련해 두는 것이다.
+
+이 경우 클래스 계층구조의 하위 계층에서 정의해야 하는 것은 어떤 타입이다.
+
+```scala
+class Food
+abstract class Animal {
+  def eat(food: Food): Unit
+}
+
+// 파라미터 타입이 다르기에 오버라이드 하지 않아 컴파일 불가 Animal = Food, Cow = Grass
+class Grass extends Food
+class Cow extends Animal {
+  override def eat(food: Grass) = {} 
+}
+
+// 음식을 추상타입으로 모델링하기
+class Food 
+abstract class Animal {
+  type SuitableFood <: Food
+  def eat(food: SuitableFood): Unit
+}
+
+// 서브 클래스에서 추상 타입 구현하기
+class Grass extends Food
+class Cow extends Animal {
+  type SuitableFood = Grass
+  override def eat(food: Grass) = {}
+}
+```
+
+## 경로에 의존하는 타입
+
+eat 메소드가 요구하는 타입
+
